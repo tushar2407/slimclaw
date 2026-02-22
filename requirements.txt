@@ -3,5 +3,5 @@ langchain
 langchain-core
 langgraph
 copilotkit
-duckduckgo-search
+ddgs
 rich

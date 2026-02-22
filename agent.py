@@ -7,6 +7,7 @@ from pathlib import Path
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
 from tools import TOOLS
+from prompt import build_system_prompt, PromptContext
 from langgraph.prebuilt import create_react_agent
 from rich.console import Console
 from rich.live import Live
@@ -61,49 +62,24 @@ def load_config() -> dict:
     return json.loads(CONFIG_FILE.read_text())
 
 
-def build_system_prompt(env: dict) -> str:
-    """Build the system prompt with environmental context."""
-    soul = (SLIMCLAW_DIR / "SOUL.md").read_text() if (SLIMCLAW_DIR / "SOUL.md").exists() else ""
-    memory = (SLIMCLAW_DIR / "MEMORY.md").read_text() if (SLIMCLAW_DIR / "MEMORY.md").exists() else ""
-
-    env_section = "\n".join(f"- {k}: {v}" for k, v in env.items())
-
-    prompt = f"""You are a personal assistant running inside slimclaw.
-
-## Environment
-{env_section}
-
-## Approach
-Before telling the user something cannot be done:
-1. Think carefully — can a tool help? Can you search for it, read it, or run a command?
-2. Try the most logical tool first. If it fails, try another approach.
-3. Only say you cannot do something after genuinely exhausting your options.
-
-## Behaviour
-- Actions speak louder than words. Just do it, don't announce it.
-- Be concise. No filler phrases.
-- If a task needs multiple steps, do them, then summarise the result.
-- Memory is limited to this session unless you write to MEMORY.md.
-
-## Tools
-- `read`: Relative paths resolve from your working directory. Use absolute paths for files elsewhere.
-- `write`: Creates/overwrites files. Relative paths resolve from working directory.
-- `shell`: Use for discovering files (`find . -name "*.md"`), listing directories (`ls -la`), running commands.
-- `memory`: Saves notes to ~/.slimclaw/MEMORY.md (persists across sessions).
-- When a file isn't found, search for it with shell before giving up.
-"""
-    if soul.strip():
-        prompt += f"\n## Persona\n{soul}"
-    if memory.strip():
-        prompt += f"\n## Memory\n{memory}"
-    return prompt
-
-
 def run_agent(user_input: str, chat_history: list) -> str:
     config = load_config()
     llm = ChatOllama(model=config["model"], base_url=config["ollama_base_url"])
     env = build_env_context()
-    agent = create_react_agent(llm, TOOLS, prompt=build_system_prompt(env))
+
+    # Build prompt context
+    soul = (SLIMCLAW_DIR / "SOUL.md").read_text() if (SLIMCLAW_DIR / "SOUL.md").exists() else ""
+    memory = (SLIMCLAW_DIR / "MEMORY.md").read_text() if (SLIMCLAW_DIR / "MEMORY.md").exists() else ""
+
+    ctx = PromptContext(
+        env=env,
+        tools=TOOLS,
+        soul=soul,
+        memory=memory,
+        cwd=env.get("cwd", ""),
+    )
+
+    agent = create_react_agent(llm, TOOLS, prompt=build_system_prompt(ctx))
 
     messages = chat_history + [HumanMessage(content=user_input)]
 
