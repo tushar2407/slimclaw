@@ -15,8 +15,7 @@ def build_tooling_section(tools: list) -> str:
         "shell": "Run shell commands. Use for: find, ls, git, etc.",
         "web_search": "Search the web via DuckDuckGo.",
         "memory": "Save a note to persistent memory (~/.slimclaw/MEMORY.md).",
-        "memory_search": "Search memory files for a pattern. Returns file:line matches.",
-        "memory_get": "Read specific lines from a memory file.",
+        "memory_search": "Search memory files AND session history for a pattern. Returns matches with context.",
     }
 
     for tool in tools:
@@ -28,6 +27,6 @@ def build_tooling_section(tools: list) -> str:
     lines.append("")
     lines.append("### Guidance")
     lines.append("- When a file isn't found, search for it with shell before giving up.")
-    lines.append("- Use memory_search then memory_get to recall past context.")
+    lines.append("- Use memory_search to recall past conversations and context.")
 
     return "\n".join(lines)
