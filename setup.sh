@@ -26,5 +26,16 @@ brew services start ollama
 echo "==> Pulling qwen2.5:7b model (this may take a while)..."
 ollama pull qwen2.5:7b
 
+echo "==> Setting up ~/.slimclaw/..."
+mkdir -p ~/.slimclaw
+if [ ! -f ~/.slimclaw/SOUL.md ]; then
+  cp workspace/SOUL.md ~/.slimclaw/SOUL.md
+  echo "Created ~/.slimclaw/SOUL.md"
+fi
+if [ ! -f ~/.slimclaw/MEMORY.md ]; then
+  touch ~/.slimclaw/MEMORY.md
+  echo "Created ~/.slimclaw/MEMORY.md"
+fi
+
 echo ""
 echo "Setup complete. Run with: source venv/bin/activate && python main.py"

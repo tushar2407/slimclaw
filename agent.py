@@ -1,4 +1,7 @@
 import json
+import os
+import platform
+from datetime import datetime
 from pathlib import Path
 
 from langchain_ollama import ChatOllama
@@ -10,20 +13,65 @@ from rich.live import Live
 from rich.markdown import Markdown
 from rich.spinner import Spinner
 
-WORKSPACE = Path(__file__).parent / "workspace"
+SLIMCLAW_DIR = Path.home() / ".slimclaw"
 CONFIG_FILE = Path(__file__).parent / "config.json"
 console = Console()
+
+
+def _get_git_branch() -> str:
+    """Get current git branch, or None if not in a git repo."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, timeout=2
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+def build_env_context() -> dict:
+    """Build a dictionary of environmental context for the agent."""
+    import sys
+    import socket
+
+    ctx = {
+        "cwd": os.getcwd(),
+        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S %A"),
+        "platform": platform.system(),
+        "platform_version": platform.release(),
+        "hostname": socket.gethostname(),
+        "user": os.environ.get("USER", os.environ.get("USERNAME", "unknown")),
+        "home": str(Path.home()),
+        "shell": os.environ.get("SHELL", "unknown"),
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+    }
+
+    git_branch = _get_git_branch()
+    if git_branch:
+        ctx["git_branch"] = git_branch
+
+    return ctx
 
 
 def load_config() -> dict:
     return json.loads(CONFIG_FILE.read_text())
 
 
-def build_system_prompt() -> str:
-    soul = (WORKSPACE / "SOUL.md").read_text() if (WORKSPACE / "SOUL.md").exists() else ""
-    memory = (WORKSPACE / "MEMORY.md").read_text() if (WORKSPACE / "MEMORY.md").exists() else ""
+def build_system_prompt(env: dict) -> str:
+    """Build the system prompt with environmental context."""
+    soul = (SLIMCLAW_DIR / "SOUL.md").read_text() if (SLIMCLAW_DIR / "SOUL.md").exists() else ""
+    memory = (SLIMCLAW_DIR / "MEMORY.md").read_text() if (SLIMCLAW_DIR / "MEMORY.md").exists() else ""
 
-    prompt = """You are a personal assistant running inside slimclaw.
+    env_section = "\n".join(f"- {k}: {v}" for k, v in env.items())
+
+    prompt = f"""You are a personal assistant running inside slimclaw.
+
+## Environment
+{env_section}
 
 ## Approach
 Before telling the user something cannot be done:
@@ -36,6 +84,13 @@ Before telling the user something cannot be done:
 - Be concise. No filler phrases.
 - If a task needs multiple steps, do them, then summarise the result.
 - Memory is limited to this session unless you write to MEMORY.md.
+
+## Tools
+- `read`: Relative paths resolve from your working directory. Use absolute paths for files elsewhere.
+- `write`: Creates/overwrites files. Relative paths resolve from working directory.
+- `shell`: Use for discovering files (`find . -name "*.md"`), listing directories (`ls -la`), running commands.
+- `memory`: Saves notes to ~/.slimclaw/MEMORY.md (persists across sessions).
+- When a file isn't found, search for it with shell before giving up.
 """
     if soul.strip():
         prompt += f"\n## Persona\n{soul}"
@@ -47,7 +102,8 @@ Before telling the user something cannot be done:
 def run_agent(user_input: str, chat_history: list) -> str:
     config = load_config()
     llm = ChatOllama(model=config["model"], base_url=config["ollama_base_url"])
-    agent = create_react_agent(llm, TOOLS, prompt=build_system_prompt())
+    env = build_env_context()
+    agent = create_react_agent(llm, TOOLS, prompt=build_system_prompt(env))
 
     messages = chat_history + [HumanMessage(content=user_input)]
 
@@ -64,12 +120,21 @@ def run_agent(user_input: str, chat_history: list) -> str:
                             live.update(Spinner("dots", text=" running tool..."))
 
                     elif hasattr(msg, "name") and msg.name:
+                        # Tool result - show name and truncated content
+                        content = getattr(msg, "content", "") or ""
+                        preview = content[:200] + "..." if len(content) > 200 else content
                         console.print(f"✓  [green]{msg.name}[/green]")
+                        if preview.strip():
+                            console.print(f"   [dim]{preview}[/dim]")
                         live.update(Spinner("dots", text=" thinking..."))
 
                     elif hasattr(msg, "content") and msg.content and node == "agent":
                         final_text = msg.content
-                        live.update(Markdown(final_text))
+                        # live.update(Markdown(final_text))
+                        console.print(Markdown(final_text))
+
+        # Clear spinner before final output
+        live.update("")
 
     if final_text == "NEEDS_CONFIRMATION":
         return "__SHELL_CONFIRM__"

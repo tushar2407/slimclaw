@@ -6,24 +6,25 @@ from pathlib import Path
 
 from duckduckgo_search import DDGS
 
-WORKSPACE = Path(__file__).parent / "workspace"
-MEMORY_FILE = WORKSPACE / "MEMORY.md"
+# Agent-specific files (SOUL.md, MEMORY.md) live in ~/.slimclaw/
+SLIMCLAW_DIR = Path.home() / ".slimclaw"
+MEMORY_FILE = SLIMCLAW_DIR / "MEMORY.md"
 
 
 def read(path: str) -> str:
-    """Read a file. Absolute paths are used as-is; relative paths resolve from workspace."""
-    target = Path(path) if Path(path).is_absolute() else WORKSPACE / path
+    """Read a file. Relative paths resolve from current working directory."""
+    target = Path(path) if Path(path).is_absolute() else Path.cwd() / path
     if not target.exists():
         return f"File not found: {path}"
     return target.read_text()
 
 
 def write(path: str, content: str) -> str:
-    """Write content to a file in the workspace."""
-    target = WORKSPACE / path
+    """Write content to a file. Relative paths resolve from current working directory."""
+    target = Path(path) if Path(path).is_absolute() else Path.cwd() / path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content)
-    return f"Written: {path}"
+    return f"Written: {target}"
 
 
 def run_shell(command: str, confirmed: bool = False) -> str:
@@ -63,7 +64,8 @@ def web_search(query: str) -> str:
 
 
 def memory_write(note: str) -> str:
-    """Append a note to MEMORY.md."""
+    """Append a note to MEMORY.md in ~/.slimclaw/."""
+    SLIMCLAW_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     entry = f"\n- [{timestamp}] {note}\n"
     with open(MEMORY_FILE, "a") as f:
@@ -75,9 +77,24 @@ def memory_write(note: str) -> str:
 from langchain_core.tools import StructuredTool
 
 TOOLS = [
-    StructuredTool.from_function(read, name="read", description="Read a file by path."),
-    StructuredTool.from_function(write, name="write", description="Write content to a file."),
-    StructuredTool.from_function(run_shell, name="shell", description="Run a shell command."),
-    StructuredTool.from_function(web_search, name="web_search", description="Search the web."),
-    StructuredTool.from_function(memory_write, name="memory", description="Save a note to persistent memory."),
+    StructuredTool.from_function(
+        read, name="read",
+        description="Read a file. Relative paths resolve from the working directory."
+    ),
+    StructuredTool.from_function(
+        write, name="write",
+        description="Write content to a file. Relative paths resolve from the working directory."
+    ),
+    StructuredTool.from_function(
+        run_shell, name="shell",
+        description="Run a shell command. Use for: finding files (find, ls -la), exploring directories, running scripts, system commands."
+    ),
+    StructuredTool.from_function(
+        web_search, name="web_search",
+        description="Search the web using DuckDuckGo."
+    ),
+    StructuredTool.from_function(
+        memory_write, name="memory",
+        description="Save a note to persistent memory (MEMORY.md)."
+    ),
 ]

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from langchain_core.messages import HumanMessage, AIMessage
 from rich.console import Console
+# from rich.markdown import Markdown
 
 from agent import run_agent
 
@@ -83,6 +84,7 @@ def main():
         chat_history.append(HumanMessage(content=user_input))
         chat_history.append(AIMessage(content=response))
 
+        # console.print(Markdown(response))
         console.print()
 
 
