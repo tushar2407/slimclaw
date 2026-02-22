@@ -1,0 +1,7 @@
+langchain-ollama
+langchain
+langchain-core
+langgraph
+copilotkit
+duckduckgo-search
+rich
