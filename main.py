@@ -8,7 +8,8 @@ from rich.console import Console
 # from rich.markdown import Markdown
 
 from agent import run_agent
-from tools import shell_instance, memory_write_tool
+from tools import memory_write_tool
+from tools.shell import shell_instance
 
 console = Console()
 SESSIONS_DIR = Path(__file__).parent / "sessions"
