@@ -1,74 +1,127 @@
-# slimclaw — Phase 1 Plan
+# SlimClaw — Phase 1 (Complete)
 
-Python CLI personal assistant. Local-first, Ollama-powered, CopilotKit-ready.
+Python CLI personal assistant. Local-first, Ollama-powered.
 
 ---
 
 ## Stack
 
 - **Python 3.11+**
-- **Ollama** — local LLM (recommended: `llama3.2` or `qwen2.5` — both run well on M1 Pro)
-- **CopilotKit SDK (Python)** — wraps the agent so it can later plug into any frontend
+- **Ollama** — local LLM (qwen2.5:7b)
 - **LangChain** — tool loop + agent orchestration
-- **Rich** — pretty CLI output
+- **Rich** — pretty CLI output with streaming
 
 ---
 
 ## Project Structure
 
-```v
+```
 slimclaw/
-├── main.py               # CLI entrypoint
-├── agent.py              # CopilotKit agent + tool loop
-├── tools.py              # Built-in tools
-├── workspace/
-│   ├── SOUL.md           # Persona
-│   └── MEMORY.md         # Persistent memory
-├── sessions/             # JSONL chat history
-├── config.json           # Model + settings
-└── requirements.txt
+├── main.py                 # CLI entrypoint
+├── agent.py                # Agent orchestration
+├── config.json             # Model + settings
+├── requirements.txt
+├── setup.sh
+│
+├── prompt/                 # Modular system prompt
+│   ├── __init__.py
+│   ├── builder.py          # Main prompt builder
+│   ├── sections/
+│   │   ├── __init__.py
+│   │   ├── identity.py     # "You are..."
+│   │   ├── environment.py  # cwd, datetime, platform
+│   │   ├── tooling.py      # Tool descriptions
+│   │   ├── behaviour.py    # Guidelines
+│   │   ├── workspace.py    # Working directory info
+│   │   └── persona.py      # SOUL.md, MEMORY.md
+│   └── types.py            # PromptContext type
+│
+├── tools/                  # Tool modules
+│   ├── __init__.py         # TOOLS list export
+│   ├── read.py
+│   ├── write.py
+│   ├── shell.py
+│   ├── web_search.py
+│   ├── memory.py
+│   ├── memory_search.py
+│   └── memory_get.py
+│
+├── sessions/               # JSONL chat history
+│
+└── ~/.slimclaw/            # User data
+    ├── SOUL.md             # Persona
+    └── MEMORY.md           # Persistent memory
 ```
 
 ---
 
-## Phase 1 Scope
+## Tools (7)
+
+| Tool | Description |
+|------|-------------|
+| `read` | Read file contents |
+| `write` | Write/create files |
+| `shell` | Run shell commands (with confirmation flow) |
+| `web_search` | Search the web via DuckDuckGo |
+| `memory` | Append notes to MEMORY.md |
+| `memory_search` | Text search over memory files |
+| `memory_get` | Read specific sections from memory |
+
+---
+
+## System Prompt Architecture
+
+Modular builder pattern with 6 sections:
+
+```python
+def build_system_prompt(ctx: PromptContext) -> str:
+    sections = [
+        build_identity_section(),
+        build_environment_section(ctx.env),
+        build_tooling_section(ctx.tools),
+        build_behaviour_section(),
+        build_workspace_section(ctx.cwd),
+        build_persona_section(ctx.soul, ctx.memory),
+    ]
+    return "\n".join(s for s in sections if s)
+```
+
+| Section | Content |
+|---------|---------|
+| Identity | "You are a personal assistant running inside slimclaw." |
+| Environment | cwd, datetime, platform, user, git_branch |
+| Tooling | Tool list with descriptions, usage guidance |
+| Behaviour | Action over announcement, conciseness |
+| Workspace | Working directory info |
+| Persona | SOUL.md content, MEMORY.md content |
+
+---
+
+## Features
 
 ### CLI
 - `python main.py` — starts interactive chat loop
 - `/new` — reset session
 - `/exit` — quit
+- Rich streaming UI with spinner
 
-### Agent
-- System prompt built from `SOUL.md` + session history
-- Tool loop: LLM calls tool → result appended → LLM continues until final reply
-- Session saved to `sessions/<id>.jsonl` on each turn
+### Shell Confirmation Flow
+- Config-based: `auto_run` can be `true`, `false`, or `null` (ask each time)
+- User can respond: `y`, `n`, `always`, `never`
+- Preference persisted to config.json
 
-### Built-in Tools (5 only)
-| Tool | What it does |
-|------|-------------|
-| `read_file` | Read a file from workspace |
-| `write_file` | Write/overwrite a file |
-| `run_shell` | Run a shell command, return output |
-| `web_search` | DuckDuckGo search (no API key needed) |
-| `memory_write` | Append a note to MEMORY.md |
-
-### CopilotKit Integration
-- Agent wrapped as a `CopilotKitSDK` action
-- This means zero rework when adding a web UI later
+### Session Persistence
+- Each session saved to `sessions/<id>.jsonl`
+- Turns appended on each exchange
 
 ---
 
-## What's explicitly NOT in Phase 1
+## What's NOT in Phase 1
+
 - No channels (WhatsApp, Telegram, etc.)
 - No WebSockets
 - No heartbeats / cron
 - No subagents
 - No plugins
 - No web UI
-
----
-
-## Questions for review
-1. `llama3.2` or `qwen2.5` as default model? (both fit M1 Pro 16GB)
-2. Should `run_shell` require confirmation before executing, or just run?
-3. Any tools you want swapped in/out from the list of 5?
+- No vector memory / embeddings
