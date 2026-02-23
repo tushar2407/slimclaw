@@ -62,7 +62,7 @@ def load_config() -> dict:
     return json.loads(CONFIG_FILE.read_text())
 
 
-def run_agent(user_input: str, chat_history: list) -> str:
+def run_agent(user_input: str, chat_history: list) -> tuple[str, dict | None]:
     config = load_config()
     ollama = config["ollama"]
     llm = ChatOllama(model=ollama["model"], base_url=ollama["base_url"])
@@ -86,6 +86,7 @@ def run_agent(user_input: str, chat_history: list) -> str:
 
     final_text = ""
     needs_shell_confirm = False
+    pending_shell_command = ""
 
     with Live(Spinner("dots", text=" thinking..."), console=console, refresh_per_second=10) as live:
         for event in agent.stream({"messages": messages}, stream_mode="updates"):
@@ -94,6 +95,8 @@ def run_agent(user_input: str, chat_history: list) -> str:
                 for msg in msgs:
                     if hasattr(msg, "tool_calls") and msg.tool_calls:
                         for tc in msg.tool_calls:
+                            if tc.get("name") == "shell":
+                                pending_shell_command = tc.get("args", {}).get("command", "")
                             console.print(f"⚙  [cyan]{tc['name']}[/cyan]([dim]{_fmt_args(tc['args'])}[/dim])")
                             live.update(Spinner("dots", text=" running tool..."))
 
@@ -118,9 +121,9 @@ def run_agent(user_input: str, chat_history: list) -> str:
         live.update("")
 
     if needs_shell_confirm:
-        return "__SHELL_CONFIRM__"
+        return ("__SHELL_CONFIRM__", {"command": pending_shell_command})
 
-    return final_text
+    return (final_text, None)
 
 
 def _fmt_args(args: dict) -> str:
