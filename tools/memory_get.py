@@ -1,9 +1,8 @@
 """Memory get tool - read specific lines/sections from memory files."""
 import re
-from pathlib import Path
 
 from langchain_core.tools import StructuredTool
-from .base import SLIMCLAW_DIR, MEMORY_FILE
+from .base import SLIMCLAW_DIR
 
 
 def memory_get(path: str = "MEMORY.md", line_range: str = "") -> str:
