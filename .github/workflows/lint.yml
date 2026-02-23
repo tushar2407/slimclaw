@@ -24,5 +24,5 @@ jobs:
       - name: Run Ruff (format check)
         run: ruff format --check .
 
-      - name: Check paths are absolute
-        # run: python scripts/lint_absolute_paths.py
+      # - name: Check paths are absolute
+      #   run: python scripts/lint_absolute_paths.py
