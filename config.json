@@ -1,5 +1,9 @@
 {
-  "model": "qwen2.5:7b",
-  "ollama_base_url": "http://localhost:11434",
-  "shell_auto_run": null
+  "ollama": {
+    "model": "qwen2.5:7b",
+    "base_url": "http://localhost:11434"
+  },
+  "shell": {
+    "auto_run": null
+  }
 }

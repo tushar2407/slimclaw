@@ -64,7 +64,8 @@ def load_config() -> dict:
 
 def run_agent(user_input: str, chat_history: list) -> str:
     config = load_config()
-    llm = ChatOllama(model=config["model"], base_url=config["ollama_base_url"])
+    ollama = config["ollama"]
+    llm = ChatOllama(model=ollama["model"], base_url=ollama["base_url"])
     env = build_env_context()
 
     # Build prompt context
@@ -84,6 +85,7 @@ def run_agent(user_input: str, chat_history: list) -> str:
     messages = chat_history + [HumanMessage(content=user_input)]
 
     final_text = ""
+    needs_shell_confirm = False
 
     with Live(Spinner("dots", text=" thinking..."), console=console, refresh_per_second=10) as live:
         for event in agent.stream({"messages": messages}, stream_mode="updates"):
@@ -98,6 +100,8 @@ def run_agent(user_input: str, chat_history: list) -> str:
                     elif hasattr(msg, "name") and msg.name:
                         # Tool result - show name and truncated content
                         content = getattr(msg, "content", "") or ""
+                        if msg.name == "shell" and content.strip() == "NEEDS_CONFIRMATION":
+                            needs_shell_confirm = True
                         preview = content[:200] + "..." if len(content) > 200 else content
                         console.print(f"✓  [green]{msg.name}[/green]")
                         if preview.strip():
@@ -107,12 +111,13 @@ def run_agent(user_input: str, chat_history: list) -> str:
                     elif hasattr(msg, "content") and msg.content and node == "agent":
                         final_text = msg.content
                         # live.update(Markdown(final_text))
-                        console.print(Markdown(final_text))
+                        if not needs_shell_confirm:
+                            console.print(Markdown(final_text))
 
         # Clear spinner before final output
         live.update("")
 
-    if final_text == "NEEDS_CONFIRMATION":
+    if needs_shell_confirm:
         return "__SHELL_CONFIRM__"
 
     return final_text

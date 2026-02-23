@@ -7,17 +7,31 @@ from langchain_core.tools import StructuredTool
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
 
+# One-time allow: set by main.py when user says "y" to confirm
+_allow_next_shell = False
 
-def run_shell(command: str, confirmed: bool = False) -> str:
-    """Run a shell command. Requires confirmation unless auto_run is set."""
+
+def allow_next_shell(allow: bool = True):
+    """Allow the next shell call (user confirmed). Used by main.py."""
+    global _allow_next_shell
+    _allow_next_shell = allow
+
+
+def run_shell(command: str) -> str:
+    """Run a shell command. Requires user confirmation unless shell_auto_run is set in config."""
+    global _allow_next_shell
     config = json.loads(CONFIG_PATH.read_text())
-    auto_run = config.get("shell_auto_run")
+    auto_run = config["shell"]["auto_run"]
 
-    if auto_run is None and not confirmed:
+    # Only allow if: config says always, or user just confirmed (one-time)
+    allowed = auto_run is True or _allow_next_shell
+    if _allow_next_shell:
+        _allow_next_shell = False
+
+    if not allowed:
+        if auto_run is False:
+            return "DENIED: user has disabled auto shell execution."
         return "NEEDS_CONFIRMATION"
-
-    if auto_run is False and not confirmed:
-        return "DENIED: user has disabled auto shell execution."
 
     try:
         result = subprocess.run(
