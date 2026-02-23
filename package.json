@@ -1,5 +1,5 @@
 {
   "scripts": {
-    "lint": "eslint 'src/**/*.js' --max-warnings=0"
+    "lint": "ruff check . && ruff format --check ."
   }
 }

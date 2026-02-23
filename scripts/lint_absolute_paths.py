@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Lint: fail if code uses relative path string literals (require absolute paths)."""
+
 from __future__ import annotations
 
 import ast
@@ -68,7 +69,10 @@ def main() -> int:
     for path, line, msg in sorted(all_issues):
         rel = path.relative_to(root)
         print(f"{rel}:{line}: {msg}", file=sys.stderr)
-    print("\nUse absolute paths or Path(__file__).parent / 'name', Path.home(), etc.", file=sys.stderr)
+    print(
+        "\nUse absolute paths or Path(__file__).parent / 'name', Path.home(), etc.",
+        file=sys.stderr,
+    )
     return 1
 
 

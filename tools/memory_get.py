@@ -1,4 +1,5 @@
 """Memory get tool - read specific lines/sections from memory files."""
+
 import re
 
 from langchain_core.tools import StructuredTool
@@ -70,5 +71,5 @@ def memory_get(path: str = "MEMORY.md", line_range: str = "") -> str:
 tool = StructuredTool.from_function(
     memory_get,
     name="memory_get",
-    description="Read from memory files (~/.slimclaw/). Use path for file (default MEMORY.md) and line_range for specific lines (e.g. '1-50' or '10')."
+    description="Read from memory files (~/.slimclaw/). Use path for file (default MEMORY.md) and line_range for specific lines (e.g. '1-50' or '10').",
 )

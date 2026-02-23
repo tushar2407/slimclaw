@@ -1,4 +1,5 @@
 """Memory tool - append notes to persistent memory."""
+
 from datetime import datetime
 
 from langchain_core.tools import StructuredTool
@@ -18,5 +19,5 @@ def memory_write(note: str) -> str:
 tool = StructuredTool.from_function(
     memory_write,
     name="memory",
-    description="Save a note to persistent memory (MEMORY.md)."
+    description="Save a note to persistent memory (MEMORY.md).",
 )

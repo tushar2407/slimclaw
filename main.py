@@ -18,14 +18,18 @@ SESSIONS_DIR.mkdir(exist_ok=True)
 
 def save_turn(session_file: Path, role: str, content: str):
     with open(session_file, "a") as f:
-        f.write(json.dumps({"role": role, "content": content, "ts": datetime.now().isoformat()}) + "\n")
+        f.write(
+            json.dumps(
+                {"role": role, "content": content, "ts": datetime.now().isoformat()}
+            )
+            + "\n"
+        )
 
 
 def set_shell_preference(allow: bool):
     config = json.loads(CONFIG_FILE.read_text())
     config["shell"]["auto_run"] = allow
     CONFIG_FILE.write_text(json.dumps(config, indent=2))
-    from tools import memory_write
     pref = "allow" if allow else "deny"
     memory_write(f"User shell execution preference: {pref}")
 
@@ -36,7 +40,9 @@ def new_session():
 
 
 def main():
-    console.print("[bold cyan]slimclaw[/bold cyan] — type [bold]/exit[/bold] to quit, [bold]/new[/bold] to reset session\n")
+    console.print(
+        "[bold cyan]slimclaw[/bold cyan] — type [bold]/exit[/bold] to quit, [bold]/new[/bold] to reset session\n"
+    )
 
     session_id, session_file, chat_history = new_session()
     pending_input = None  # holds original input during shell confirmation
@@ -68,7 +74,9 @@ def main():
             else:
                 if user_input.lower() in ("n", "no", "never"):
                     set_shell_preference(False)
-                    console.print("[dim]Preference saved — shell execution disabled.[/dim]")
+                    console.print(
+                        "[dim]Preference saved — shell execution disabled.[/dim]"
+                    )
                 response = "Shell command cancelled."
             pending_input = None
         else:
@@ -76,7 +84,10 @@ def main():
 
         if response == "__SHELL_CONFIRM__":
             pending_input = user_input
-            console.print("[yellow]assistant>[/yellow] Run shell command? [y/n/always/never]: ", end="")
+            console.print(
+                "[yellow]assistant>[/yellow] Run shell command? [y/n/always/never]: ",
+                end="",
+            )
             continue
 
         save_turn(session_file, "human", user_input)

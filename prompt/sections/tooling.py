@@ -27,8 +27,14 @@ def build_tooling_section(tools: list) -> str:
     # Usage guidance
     lines.append("")
     lines.append("### Guidance")
-    lines.append("- When a file isn't found, search for it with shell before giving up.")
-    lines.append("- When the user asks you to remember something → always call the memory tool to save it.")
-    lines.append("- When the user asks what you remember → call memory_search or memory_get to read from MEMORY.md (do not rely on session context).")
+    lines.append(
+        "- When a file isn't found, search for it with shell before giving up."
+    )
+    lines.append(
+        "- When the user asks you to remember something → always call the memory tool to save it."
+    )
+    lines.append(
+        "- When the user asks what you remember → call memory_search or memory_get to read from MEMORY.md (do not rely on session context)."
+    )
 
     return "\n".join(lines)
