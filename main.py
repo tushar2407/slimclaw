@@ -8,6 +8,7 @@ from rich.console import Console
 # from rich.markdown import Markdown
 
 from agent import run_agent
+from tools.memory import memory_write
 from tools.shell import allow_next_shell
 
 console = Console()
