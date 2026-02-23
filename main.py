@@ -8,8 +8,7 @@ from rich.console import Console
 # from rich.markdown import Markdown
 
 from agent import run_agent
-from tools.memory import memory_write
-from tools.shell import allow_next_shell
+from tools import shell_instance, memory_write
 
 console = Console()
 SESSIONS_DIR = Path(__file__).parent / "sessions"
@@ -70,7 +69,7 @@ def main():
                     set_shell_preference(True)
                     console.print("[dim]Preference saved — won't ask again.[/dim]")
                 else:
-                    allow_next_shell(True)  # One-time allow for this run
+                    shell_instance.allow_once()  # One-time allow for this run
                 response = run_agent(pending_input, chat_history)
             else:
                 if user_input.lower() in ("n", "no", "never"):
