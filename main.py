@@ -64,25 +64,26 @@ def main():
                     console.print("[dim]Preference saved — won't ask again.[/dim]")
                 else:
                     allow_next_shell(True)  # One-time allow for this run
-                response = run_agent(pending_input, chat_history)
+                response, _ = run_agent(pending_input, chat_history)
             else:
                 if user_input.lower() in ("n", "no", "never"):
                     set_shell_preference(False)
                     console.print("[dim]Preference saved — shell execution disabled.[/dim]")
-                response = "Shell command cancelled."
+                response, _ = "Shell command cancelled.", None
             pending_input = None
         else:
-            response = run_agent(user_input, chat_history)
+            response, extra = run_agent(user_input, chat_history)
 
         if response == "__SHELL_CONFIRM__":
             pending_input = user_input
-            console.print("[yellow]assistant>[/yellow] Run shell command? [y/n/always/never]: ", end="")
+            cmd = extra.get("command", "?") if extra else "?"
+            console.print(f"[yellow]assistant>[/yellow] Run shell command [dim]{cmd}[/dim]? [y/n/always/never]: ", end="")
             continue
 
         save_turn(session_file, "human", user_input)
         save_turn(session_file, "assistant", response)
         chat_history.append(HumanMessage(content=user_input))
-        chat_history.append(AIMessage(content=response))
+        chat_history.append(AIMessage(content=str(response)))
 
         # console.print(Markdown(response))
         console.print()
