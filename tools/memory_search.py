@@ -1,4 +1,5 @@
 """Memory search tool - grep-style search over memory and session files."""
+
 import json
 import re
 from pathlib import Path
@@ -76,7 +77,9 @@ def _search_sessions(pattern: re.Pattern) -> list[str]:
                         preview = content[:300].replace("\n", " ")
                         if len(content) > 300:
                             preview += "..."
-                        matches.append(f"sessions/{jsonl_file.name}:{line_num}: [{role}] {preview}")
+                        matches.append(
+                            f"sessions/{jsonl_file.name}:{line_num}: [{role}] {preview}"
+                        )
                 except json.JSONDecodeError:
                     continue
     except Exception:
@@ -87,5 +90,5 @@ def _search_sessions(pattern: re.Pattern) -> list[str]:
 tool = StructuredTool.from_function(
     memory_search,
     name="memory_search",
-    description="Search memory files and session history for a regex pattern. Returns matching lines with file:line references."
+    description="Search memory files and session history for a regex pattern. Returns matching lines with file:line references.",
 )

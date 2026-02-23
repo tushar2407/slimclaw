@@ -1,4 +1,5 @@
 """Prompt section builders."""
+
 from .identity import build_identity_section
 from .environment import build_environment_section
 from .tooling import build_tooling_section

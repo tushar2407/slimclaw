@@ -1,4 +1,5 @@
 """System prompt builder - assembles sections into a complete prompt."""
+
 from .types import PromptContext
 from .sections import (
     build_identity_section,

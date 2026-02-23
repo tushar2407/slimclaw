@@ -1,4 +1,5 @@
 """Read tool - read file contents."""
+
 from langchain_core.tools import StructuredTool
 from .base import resolve_path
 
@@ -14,5 +15,5 @@ def read(path: str) -> str:
 tool = StructuredTool.from_function(
     read,
     name="read",
-    description="Read a file. Relative paths resolve from the working directory."
+    description="Read a file. Relative paths resolve from the working directory.",
 )

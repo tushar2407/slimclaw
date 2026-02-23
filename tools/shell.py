@@ -1,4 +1,5 @@
 """Shell tool - run shell commands."""
+
 import json
 import subprocess
 from pathlib import Path
@@ -48,5 +49,5 @@ def run_shell(command: str) -> str:
 tool = StructuredTool.from_function(
     run_shell,
     name="shell",
-    description="Run a shell command. Use for: finding files (find, ls -la), exploring directories, running scripts, system commands."
+    description="Run a shell command. Use for: finding files (find, ls -la), exploring directories, running scripts, system commands.",
 )

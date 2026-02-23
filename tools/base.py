@@ -1,4 +1,5 @@
 """Common utilities for tools."""
+
 from pathlib import Path
 
 # Agent-specific files live in ~/.slimclaw/

@@ -23,9 +23,12 @@ def _get_git_branch() -> str:
     """Get current git branch, or None if not in a git repo."""
     try:
         import subprocess
+
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=2
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -69,8 +72,16 @@ def run_agent(user_input: str, chat_history: list) -> str:
     env = build_env_context()
 
     # Build prompt context
-    soul = (SLIMCLAW_DIR / "SOUL.md").read_text() if (SLIMCLAW_DIR / "SOUL.md").exists() else ""
-    memory = (SLIMCLAW_DIR / "MEMORY.md").read_text() if (SLIMCLAW_DIR / "MEMORY.md").exists() else ""
+    soul = (
+        (SLIMCLAW_DIR / "SOUL.md").read_text()
+        if (SLIMCLAW_DIR / "SOUL.md").exists()
+        else ""
+    )
+    memory = (
+        (SLIMCLAW_DIR / "MEMORY.md").read_text()
+        if (SLIMCLAW_DIR / "MEMORY.md").exists()
+        else ""
+    )
 
     ctx = PromptContext(
         env=env,
@@ -87,22 +98,31 @@ def run_agent(user_input: str, chat_history: list) -> str:
     final_text = ""
     needs_shell_confirm = False
 
-    with Live(Spinner("dots", text=" thinking..."), console=console, refresh_per_second=10) as live:
+    with Live(
+        Spinner("dots", text=" thinking..."), console=console, refresh_per_second=10
+    ) as live:
         for event in agent.stream({"messages": messages}, stream_mode="updates"):
             for node, data in event.items():
                 msgs = data.get("messages", [])
                 for msg in msgs:
                     if hasattr(msg, "tool_calls") and msg.tool_calls:
                         for tc in msg.tool_calls:
-                            console.print(f"⚙  [cyan]{tc['name']}[/cyan]([dim]{_fmt_args(tc['args'])}[/dim])")
+                            console.print(
+                                f"⚙  [cyan]{tc['name']}[/cyan]([dim]{_fmt_args(tc['args'])}[/dim])"
+                            )
                             live.update(Spinner("dots", text=" running tool..."))
 
                     elif hasattr(msg, "name") and msg.name:
                         # Tool result - show name and truncated content
                         content = getattr(msg, "content", "") or ""
-                        if msg.name == "shell" and content.strip() == "NEEDS_CONFIRMATION":
+                        if (
+                            msg.name == "shell"
+                            and content.strip() == "NEEDS_CONFIRMATION"
+                        ):
                             needs_shell_confirm = True
-                        preview = content[:200] + "..." if len(content) > 200 else content
+                        preview = (
+                            content[:200] + "..." if len(content) > 200 else content
+                        )
                         console.print(f"✓  [green]{msg.name}[/green]")
                         if preview.strip():
                             console.print(f"   [dim]{preview}[/dim]")
