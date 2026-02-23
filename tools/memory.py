@@ -1,4 +1,5 @@
 """Memory tools - write, search, and get from persistent memory."""
+
 import json
 import re
 from datetime import datetime
@@ -13,6 +14,7 @@ SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
 
 # ─── Memory Write ──────────────────────────────────────────────────────────────
 
+
 def memory_write(note: str) -> str:
     """Append a note to MEMORY.md in ~/.slimclaw/."""
     SLIMCLAW_DIR.mkdir(parents=True, exist_ok=True)
@@ -24,6 +26,7 @@ def memory_write(note: str) -> str:
 
 
 # ─── Memory Search ─────────────────────────────────────────────────────────────
+
 
 def memory_search(query: str, case_insensitive: bool = True) -> str:
     """Search memory files and session history for a pattern.
@@ -91,7 +94,9 @@ def _search_sessions(pattern: re.Pattern) -> list[str]:
                         preview = content[:300].replace("\n", " ")
                         if len(content) > 300:
                             preview += "..."
-                        matches.append(f"sessions/{jsonl_file.name}:{line_num}: [{role}] {preview}")
+                        matches.append(
+                            f"sessions/{jsonl_file.name}:{line_num}: [{role}] {preview}"
+                        )
                 except json.JSONDecodeError:
                     continue
     except Exception:
@@ -100,6 +105,7 @@ def _search_sessions(pattern: re.Pattern) -> list[str]:
 
 
 # ─── Memory Get ────────────────────────────────────────────────────────────────
+
 
 def memory_get(path: str = "MEMORY.md", line_range: str = "") -> str:
     """Read from a memory file, optionally a specific line range.
@@ -168,17 +174,17 @@ def memory_get(path: str = "MEMORY.md", line_range: str = "") -> str:
 memory_write_tool = StructuredTool.from_function(
     memory_write,
     name="memory_write",
-    description="Save a note to persistent memory (MEMORY.md)."
+    description="Save a note to persistent memory (MEMORY.md).",
 )
 
 memory_search_tool = StructuredTool.from_function(
     memory_search,
     name="memory_search",
-    description="Search memory files and session history for a regex pattern. Returns matching lines with file:line references."
+    description="Search memory files and session history for a regex pattern. Returns matching lines with file:line references.",
 )
 
 memory_get_tool = StructuredTool.from_function(
     memory_get,
     name="memory_get",
-    description="Read from memory files (~/.slimclaw/). Use path for file (default MEMORY.md) and line_range for specific lines (e.g. '1-50' or '10')."
+    description="Read from memory files (~/.slimclaw/). Use path for file (default MEMORY.md) and line_range for specific lines (e.g. '1-50' or '10').",
 )
