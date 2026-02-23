@@ -66,7 +66,7 @@ def main():
         if pending_input is not None:
             if user_input.lower() in ("y", "yes", "always"):
                 if user_input.lower() == "always":
-                    set_shell_preference(True)
+                    set_shell_preference(True) # Set to always allow shell execution
                     console.print("[dim]Preference saved — won't ask again.[/dim]")
                 else:
                     shell_instance.allow_once()  # One-time allow for this run
@@ -74,7 +74,7 @@ def main():
             else:
                 if user_input.lower() in ("n", "no", "never"):
                     if user_input.lower() == "never":
-                        set_shell_preference(False)
+                        set_shell_preference(False) # Set to never allow shell execution
                         console.print("[dim]Preference saved — shell execution disabled.[/dim]")
                 response = "Shell command cancelled."
             pending_input = None
