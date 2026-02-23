@@ -8,7 +8,7 @@ from rich.console import Console
 # from rich.markdown import Markdown
 
 from agent import run_agent
-from tools import shell_instance, memory_write
+from tools import shell_instance, memory_write_tool
 
 console = Console()
 SESSIONS_DIR = Path(__file__).parent / "sessions"
@@ -31,7 +31,7 @@ def set_shell_preference(allow: bool):
     config["shell"]["auto_run"] = allow
     CONFIG_FILE.write_text(json.dumps(config, indent=2))
     pref = "allow" if allow else "deny"
-    memory_write(f"User shell execution preference: {pref}")
+    memory_write_tool.run(f"User shell execution preference: {pref}")
 
 
 def new_session():
@@ -73,10 +73,9 @@ def main():
                 response = run_agent(pending_input, chat_history)
             else:
                 if user_input.lower() in ("n", "no", "never"):
-                    set_shell_preference(False)
-                    console.print(
-                        "[dim]Preference saved — shell execution disabled.[/dim]"
-                    )
+                    if user_input.lower() == "never":
+                        set_shell_preference(False)
+                        console.print("[dim]Preference saved — shell execution disabled.[/dim]")
                 response = "Shell command cancelled."
             pending_input = None
         else:
