@@ -1,6 +1,7 @@
 import json
 import os
 import platform
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from rich.spinner import Spinner
 SLIMCLAW_DIR = Path.home() / ".slimclaw"
 CONFIG_FILE = Path(__file__).parent / "config.json"
 console = Console()
+
+MAX_TOOL_RETRIES = 3
 
 
 def _get_git_branch() -> str:
@@ -97,12 +100,19 @@ def run_agent(user_input: str, chat_history: list) -> str:
 
     final_text = ""
     needs_shell_confirm = False
+    tool_failures = defaultdict(int)
 
     with Live(
         Spinner("dots", text=" thinking..."), console=console, refresh_per_second=10
     ) as live:
         for event in agent.stream({"messages": messages}, stream_mode="updates"):
+            if needs_shell_confirm:
+                break  # Stop immediately when shell confirmation needed
+
             for node, data in event.items():
+                if needs_shell_confirm:
+                    break
+
                 msgs = data.get("messages", [])
                 for msg in msgs:
                     if hasattr(msg, "tool_calls") and msg.tool_calls:
@@ -120,6 +130,19 @@ def run_agent(user_input: str, chat_history: list) -> str:
                             and content.strip() == "NEEDS_CONFIRMATION"
                         ):
                             needs_shell_confirm = True
+                            break  # Stop immediately - ask user first
+
+                        # Track tool failures for retry limiting
+                        if content.startswith("ERROR") or content.startswith("FATAL"):
+                            tool_failures[msg.name] += 1
+                            if tool_failures[msg.name] >= MAX_TOOL_RETRIES:
+                                console.print(
+                                    f"[red]Tool {msg.name} failed {MAX_TOOL_RETRIES}x[/red]"
+                                )
+                                return f"Tool {msg.name} failed repeatedly: {content}"
+                        else:
+                            tool_failures[msg.name] = 0  # Reset on success
+
                         preview = (
                             content[:200] + "..." if len(content) > 200 else content
                         )
@@ -130,7 +153,6 @@ def run_agent(user_input: str, chat_history: list) -> str:
 
                     elif hasattr(msg, "content") and msg.content and node == "agent":
                         final_text = msg.content
-                        # live.update(Markdown(final_text))
                         if not needs_shell_confirm:
                             console.print(Markdown(final_text))
 

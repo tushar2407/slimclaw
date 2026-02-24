@@ -67,17 +67,16 @@ def main():
         if pending_input is not None:
             if user_input.lower() in ("y", "yes", "always"):
                 if user_input.lower() == "always":
-                    set_shell_preference(True)  # Set to always allow shell execution
+                    set_shell_preference(True)
                     console.print("[dim]Preference saved — won't ask again.[/dim]")
                 else:
-                    shell_instance.allow_once()  # One-time allow for this run
+                    shell_instance.allow_turn()  # Allow shell for this agent turn
                 response = run_agent(pending_input, chat_history)
+                shell_instance.revoke()  # Revoke after turn completes
             else:
                 if user_input.lower() in ("n", "no", "never"):
                     if user_input.lower() == "never":
-                        set_shell_preference(
-                            False
-                        )  # Set to never allow shell execution
+                        set_shell_preference(False)
                         console.print(
                             "[dim]Preference saved — shell execution disabled.[/dim]"
                         )
@@ -90,7 +89,7 @@ def main():
             pending_input = user_input
             console.print(
                 "[yellow]assistant>[/yellow] Run shell command? [y/n/always/never]: ",
-                end="",
+                end="\n",
             )
             continue
 
