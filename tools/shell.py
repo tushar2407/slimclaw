@@ -50,7 +50,7 @@ class ShellTool:
         return StructuredTool.from_function(
             self.run,
             name="shell",
-            description="Run a shell command. Use for: finding files (find, ls -la), exploring directories, running scripts, system commands."
+            description="Run a shell command. Use for: finding files (find, ls -la), exploring directories, running scripts, system commands.",
         )
 
 
