@@ -42,9 +42,7 @@ slimclaw/
 │   ├── write.py
 │   ├── shell.py
 │   ├── web_search.py
-│   ├── memory.py
-│   ├── memory_search.py
-│   └── memory_get.py
+│   └── memory.py
 │
 ├── sessions/               # JSONL chat history
 │
@@ -64,8 +62,8 @@ slimclaw/
 | `shell` | Run shell commands (with confirmation flow) |
 | `web_search` | Search the web via DuckDuckGo |
 | `memory` | Append notes to MEMORY.md |
-| `memory_search` | Text search over memory files |
-| `memory_get` | Read specific sections from memory |
+| `memory_search` | Search memory files and session history for a regex pattern |
+| `memory_get` | Read from memory files (~/.slimclaw/) with optional line ranges |
 
 ---
 
