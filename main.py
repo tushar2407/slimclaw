@@ -8,8 +8,8 @@ from rich.console import Console
 # from rich.markdown import Markdown
 
 from agent import run_agent
-from tools.memory import memory_write
-from tools.shell import allow_next_shell
+from tools import memory_write_tool
+from tools.shell import shell_instance
 
 console = Console()
 SESSIONS_DIR = Path(__file__).parent / "sessions"
@@ -32,7 +32,7 @@ def set_shell_preference(allow: bool):
     config["shell"]["auto_run"] = allow
     CONFIG_FILE.write_text(json.dumps(config, indent=2))
     pref = "allow" if allow else "deny"
-    memory_write(f"User shell execution preference: {pref}")
+    memory_write_tool.run(f"User shell execution preference: {pref}")
 
 
 def new_session():
@@ -67,17 +67,20 @@ def main():
         if pending_input is not None:
             if user_input.lower() in ("y", "yes", "always"):
                 if user_input.lower() == "always":
-                    set_shell_preference(True)
+                    set_shell_preference(True)  # Set to always allow shell execution
                     console.print("[dim]Preference saved — won't ask again.[/dim]")
                 else:
-                    allow_next_shell(True)  # One-time allow for this run
+                    shell_instance.allow_once()  # One-time allow for this run
                 response = run_agent(pending_input, chat_history)
             else:
                 if user_input.lower() in ("n", "no", "never"):
-                    set_shell_preference(False)
-                    console.print(
-                        "[dim]Preference saved — shell execution disabled.[/dim]"
-                    )
+                    if user_input.lower() == "never":
+                        set_shell_preference(
+                            False
+                        )  # Set to never allow shell execution
+                        console.print(
+                            "[dim]Preference saved — shell execution disabled.[/dim]"
+                        )
                 response = "Shell command cancelled."
             pending_input = None
         else:
