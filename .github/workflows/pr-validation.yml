@@ -1,0 +1,38 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  validate-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required sections
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+
+            // Extract content after each header (until next header or end)
+            const getSection = (text, header) => {
+              const regex = new RegExp(`#\\s*${header}[\\s\\S]*?(?=#|$)`, 'i');
+              const match = text.match(regex);
+              if (!match) return '';
+              // Remove the header line and HTML comments
+              return match[0]
+                .replace(new RegExp(`#\\s*${header}`, 'i'), '')
+                .replace(/<!--[\s\S]*?-->/g, '')
+                .trim();
+            };
+
+            const problem = getSection(body, 'Problem');
+            const solution = getSection(body, 'Solution');
+
+            const errors = [];
+            if (!problem) errors.push('**Problem** section is required');
+            if (!solution) errors.push('**Solution** section is required');
+
+            if (errors.length > 0) {
+              core.setFailed(`PR description incomplete:\n${errors.join('\n')}`);
+            }
