@@ -99,20 +99,13 @@ def run_agent(user_input: str, chat_history: list) -> str:
     messages = chat_history + [HumanMessage(content=user_input)]
 
     final_text = ""
-    needs_shell_confirm = False
     tool_failures = defaultdict(int)
 
     with Live(
         Spinner("dots", text=" thinking..."), console=console, refresh_per_second=10
     ) as live:
         for event in agent.stream({"messages": messages}, stream_mode="updates"):
-            if needs_shell_confirm:
-                break  # Stop immediately when shell confirmation needed
-
             for node, data in event.items():
-                if needs_shell_confirm:
-                    break
-
                 msgs = data.get("messages", [])
                 for msg in msgs:
                     if hasattr(msg, "tool_calls") and msg.tool_calls:
@@ -125,12 +118,6 @@ def run_agent(user_input: str, chat_history: list) -> str:
                     elif hasattr(msg, "name") and msg.name:
                         # Tool result - show name and truncated content
                         content = getattr(msg, "content", "") or ""
-                        if (
-                            msg.name == "shell"
-                            and content.strip() == "NEEDS_CONFIRMATION"
-                        ):
-                            needs_shell_confirm = True
-                            break  # Stop immediately - ask user first
 
                         # Track tool failures for retry limiting
                         if content.startswith("ERROR") or content.startswith("FATAL"):
@@ -153,14 +140,10 @@ def run_agent(user_input: str, chat_history: list) -> str:
 
                     elif hasattr(msg, "content") and msg.content and node == "agent":
                         final_text = msg.content
-                        if not needs_shell_confirm:
-                            console.print(Markdown(final_text))
+                        console.print(Markdown(final_text))
 
         # Clear spinner before final output
         live.update("")
-
-    if needs_shell_confirm:
-        return "__SHELL_CONFIRM__"
 
     return final_text
 

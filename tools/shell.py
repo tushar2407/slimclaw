@@ -5,38 +5,73 @@ import subprocess
 from pathlib import Path
 
 from langchain_core.tools import StructuredTool
+from rich.console import Console
 
 from .types import err, ok
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+console = Console()
 
 
 class ShellTool:
-    """Shell tool with encapsulated permission state."""
+    """Shell tool with built-in, per-command confirmation."""
 
     def __init__(self):
-        self._turn_allow = False
+        pass
 
-    def allow_turn(self):
-        """Grant permission for the current agent turn (until revoke() is called)."""
-        self._turn_allow = True
+    def _set_shell_preference(self, allow: bool) -> None:
+        """Persist user preference for shell auto_run."""
+        config = json.loads(CONFIG_PATH.read_text())
+        config.setdefault("shell", {})
+        config["shell"]["auto_run"] = allow
+        CONFIG_PATH.write_text(json.dumps(config, indent=2))
 
-    def revoke(self):
-        """Revoke turn permission (call after agent turn completes)."""
-        self._turn_allow = False
+    def _confirm_command(self, command: str) -> bool:
+        """Ask the user whether to run this specific command."""
+        cmd_preview = (
+            command[:60] + "..." if len(command) > 60 else command
+        ) or "(empty command)"
+
+        while True:
+            answer = (
+                console.input(
+                    f"[yellow]assistant>[/yellow] Run shell command [dim]`{cmd_preview}`[/dim]? [y/n/always/never]: "
+                )
+                .strip()
+                .lower()
+            )
+
+            if answer in ("y", "yes"):
+                return True
+            if answer == "always":
+                self._set_shell_preference(True)
+                console.print("[dim]Preference saved — won't ask again.[/dim]")
+                return True
+            if answer in ("n", "no"):
+                return False
+            if answer == "never":
+                self._set_shell_preference(False)
+                console.print("[dim]Preference saved — shell execution disabled.[/dim]")
+                return False
+            # Anything else, re-prompt
 
     def run(self, command: str) -> str:
-        """Run a shell command. Requires user confirmation unless shell_auto_run is set in config."""
+        """Run a shell command, asking the user for confirmation when needed."""
         config = json.loads(CONFIG_PATH.read_text())
-        auto_run = config["shell"]["auto_run"]
+        shell_cfg = config.get("shell", {})
+        auto_run = shell_cfg.get("auto_run")
 
-        # Allow if: config says always, or user confirmed for this turn
-        allowed = auto_run is True or self._turn_allow
+        # Respect persistent preference first
+        if auto_run is True:
+            allowed = True
+        elif auto_run is False:
+            return "DENIED: user has disabled auto shell execution."
+        else:
+            # No stored preference: ask just for this command
+            allowed = self._confirm_command(command)
 
         if not allowed:
-            if auto_run is False:
-                return "DENIED: user has disabled auto shell execution."
-            return "NEEDS_CONFIRMATION"
+            return "Shell command cancelled."
 
         try:
             result = subprocess.run(
