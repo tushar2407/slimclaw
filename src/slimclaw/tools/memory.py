@@ -6,10 +6,19 @@ from datetime import datetime
 from pathlib import Path
 
 from langchain_core.tools import StructuredTool
-from .base import SLIMCLAW_DIR, MEMORY_FILE
 
-# Sessions directory is relative to the project root
-SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
+from slimclaw.tools.base import MEMORY_FILE, SLIMCLAW_DIR
+
+# Sessions directory is at project root/data/sessions
+# We find it relative to the working directory
+def _get_sessions_dir() -> Path:
+    """Get the sessions directory path."""
+    # Try data/sessions from cwd first
+    cwd_sessions = Path.cwd() / "data" / "sessions"
+    if cwd_sessions.exists():
+        return cwd_sessions
+    # Fallback to old location for backwards compatibility
+    return Path.cwd() / "sessions"
 
 
 # ─── Memory Write ──────────────────────────────────────────────────────────────
@@ -34,7 +43,7 @@ def memory_search(query: str, case_insensitive: bool = True) -> str:
     Searches:
     - ~/.slimclaw/MEMORY.md
     - ~/.slimclaw/memory/*.md
-    - sessions/*.jsonl (conversation history)
+    - data/sessions/*.jsonl (conversation history)
 
     Returns matching lines with file path and line numbers.
     """
@@ -57,8 +66,9 @@ def memory_search(query: str, case_insensitive: bool = True) -> str:
             results.extend(_search_file(md_file, pattern, SLIMCLAW_DIR))
 
     # Search session files
-    if SESSIONS_DIR.exists():
-        results.extend(_search_sessions(pattern))
+    sessions_dir = _get_sessions_dir()
+    if sessions_dir.exists():
+        results.extend(_search_sessions(pattern, sessions_dir))
 
     if not results:
         return f"No matches found for: {query}"
@@ -80,11 +90,11 @@ def _search_file(file_path: Path, pattern: re.Pattern, base_dir: Path) -> list[s
     return matches
 
 
-def _search_sessions(pattern: re.Pattern) -> list[str]:
+def _search_sessions(pattern: re.Pattern, sessions_dir: Path) -> list[str]:
     """Search through session JSONL files."""
     matches = []
     try:
-        for jsonl_file in sorted(SESSIONS_DIR.glob("*.jsonl"), reverse=True):
+        for jsonl_file in sorted(sessions_dir.glob("*.jsonl"), reverse=True):
             for line_num, line in enumerate(jsonl_file.read_text().splitlines(), 1):
                 try:
                     entry = json.loads(line)

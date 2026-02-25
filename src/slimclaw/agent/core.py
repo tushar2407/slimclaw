@@ -1,0 +1,344 @@
+"""SlimClaw Agent - class-based agent with checkpointing and streaming."""
+
+import os
+import platform
+import socket
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Generator, Optional
+
+from langchain_core.messages import HumanMessage
+from langchain_ollama import ChatOllama
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.prebuilt import create_react_agent
+
+from slimclaw.agent.models import InvokeResult, PendingToolCall, StreamEvent
+from slimclaw.agent.state import AgentState
+from slimclaw.config import load_config
+from slimclaw.prompt import PromptContext, build_system_prompt
+from slimclaw.tools import TOOLS
+
+# ─── Paths ────────────────────────────────────────────────────────────────────
+
+SLIMCLAW_DIR = Path.home() / ".slimclaw"
+
+
+# ─── Helper Functions ─────────────────────────────────────────────────────────
+
+
+def _get_git_branch() -> Optional[str]:
+    """Get current git branch, or None if not in a git repo."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+def _build_env_context() -> dict:
+    """Build a dictionary of environmental context for the agent."""
+    ctx = {
+        "cwd": os.getcwd(),
+        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S %A"),
+        "platform": platform.system(),
+        "platform_version": platform.release(),
+        "hostname": socket.gethostname(),
+        "user": os.environ.get("USER", os.environ.get("USERNAME", "unknown")),
+        "home": str(Path.home()),
+        "shell": os.environ.get("SHELL", "unknown"),
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+    }
+
+    git_branch = _get_git_branch()
+    if git_branch:
+        ctx["git_branch"] = git_branch
+
+    return ctx
+
+
+# ─── SlimclawAgent Class ──────────────────────────────────────────────────────
+
+
+class SlimclawAgent:
+    """
+    Stateful agent with checkpointing and interrupt/resume support.
+
+    Usage:
+        agent = SlimclawAgent()
+        agent.new_session("session-123")
+
+        for event in agent.stream("list files"):
+            if event.type == "interrupt":
+                # Handle shell confirmation
+                if user_approves:
+                    for event in agent.resume():
+                        handle(event)
+            elif event.type == "complete":
+                print(event.data.response)
+    """
+
+    def __init__(self):
+        self._config = load_config()
+        self._checkpointer = MemorySaver()
+        self._session_id: Optional[str] = None
+        self._graph = None  # Lazy init
+        self._llm = None
+
+    def _build_graph(self):
+        """Build the LangGraph agent with checkpointing."""
+        ollama_config = self._config["ollama"]
+        self._llm = ChatOllama(
+            model=ollama_config["model"],
+            base_url=ollama_config["base_url"],
+        )
+
+        # Build prompt context
+        env = _build_env_context()
+        soul = (
+            (SLIMCLAW_DIR / "SOUL.md").read_text()
+            if (SLIMCLAW_DIR / "SOUL.md").exists()
+            else ""
+        )
+        memory = (
+            (SLIMCLAW_DIR / "MEMORY.md").read_text()
+            if (SLIMCLAW_DIR / "MEMORY.md").exists()
+            else ""
+        )
+
+        ctx = PromptContext(
+            env=env,
+            tools=TOOLS,
+            soul=soul,
+            memory=memory,
+            cwd=env.get("cwd", ""),
+        )
+
+        self._graph = create_react_agent(
+            self._llm,
+            TOOLS,
+            prompt=build_system_prompt(ctx),
+            checkpointer=self._checkpointer,
+            interrupt_before=["tools"],  # Pause before any tool execution
+        )
+
+    def new_session(self, session_id: str) -> None:
+        """Start a new conversation session."""
+        self._session_id = session_id
+        # Rebuild graph to refresh env context (cwd, datetime, etc.)
+        self._build_graph()
+
+    def _get_config(self) -> dict:
+        """Get LangGraph config with thread_id."""
+        return {"configurable": {"thread_id": self._session_id}}
+
+    def _needs_approval(self, pending: list[PendingToolCall]) -> bool:
+        """Check if any pending tool needs user approval."""
+        auto_run = self._config.get("shell", {}).get("auto_run")
+
+        for tool in pending:
+            if tool.tool_name == "shell":
+                # None = ask, True = always allow, False = always deny
+                if auto_run is not True:
+                    return True
+        return False
+
+    def _extract_pending_tools(self, state) -> list[PendingToolCall]:
+        """Extract pending tool calls from graph state."""
+        pending = []
+        messages = state.values.get("messages", [])
+
+        # Find the last AI message with tool calls
+        for msg in reversed(messages):
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    pending.append(
+                        PendingToolCall(
+                            tool_name=tc["name"],
+                            tool_args=tc.get("args", {}),
+                            tool_call_id=tc.get("id", ""),
+                        )
+                    )
+                break
+
+        return pending
+
+    def _extract_response(self, messages: list) -> Optional[str]:
+        """Extract the final text response from messages."""
+        for msg in reversed(messages):
+            if hasattr(msg, "content") and msg.content:
+                # Skip tool messages
+                if not hasattr(msg, "name") or not msg.name:
+                    return msg.content
+        return None
+
+    def stream(self, user_input: str) -> Generator[StreamEvent, None, None]:
+        """
+        Stream agent execution, yielding events.
+
+        Yields:
+            StreamEvent with types:
+            - "tool_call": About to call a tool (data=PendingToolCall)
+            - "tool_result": Tool returned (data={"tool": name, "result": content})
+            - "text": Agent text response (data=str)
+            - "interrupt": Needs user approval (data=InvokeResult)
+            - "complete": Execution finished (data=InvokeResult)
+        """
+        if not self._graph or not self._session_id:
+            raise RuntimeError("Call new_session() before stream()")
+
+        config = self._get_config()
+        messages = [HumanMessage(content=user_input)]
+
+        # Stream the agent execution
+        for event in self._graph.stream(
+            {"messages": messages}, config, stream_mode="updates"
+        ):
+            for node, data in event.items():
+                msgs = data.get("messages", [])
+                for msg in msgs:
+                    # Tool call from agent
+                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        for tc in msg.tool_calls:
+                            yield StreamEvent(
+                                type="tool_call",
+                                data=PendingToolCall(
+                                    tool_name=tc["name"],
+                                    tool_args=tc.get("args", {}),
+                                    tool_call_id=tc.get("id", ""),
+                                ),
+                            )
+
+                    # Tool result
+                    elif hasattr(msg, "name") and msg.name:
+                        content = getattr(msg, "content", "") or ""
+                        yield StreamEvent(
+                            type="tool_result",
+                            data={"tool": msg.name, "result": content},
+                        )
+
+                    # Agent text response
+                    elif hasattr(msg, "content") and msg.content and node == "agent":
+                        yield StreamEvent(type="text", data=msg.content)
+
+        # Check if we're interrupted (pending tools)
+        state = self._graph.get_state(config)
+
+        if state.next:  # Has pending steps
+            pending = self._extract_pending_tools(state)
+
+            if self._needs_approval(pending):
+                # Interrupted - needs user approval
+                yield StreamEvent(
+                    type="interrupt",
+                    data=InvokeResult(
+                        response=None,
+                        state=AgentState.INTERRUPTED,
+                        pending_tools=pending,
+                    ),
+                )
+                return
+            else:
+                # Auto-approve non-shell tools and continue
+                yield from self.resume()
+                return
+
+        # Completed
+        all_messages = state.values.get("messages", [])
+        yield StreamEvent(
+            type="complete",
+            data=InvokeResult(
+                response=self._extract_response(all_messages),
+                state=AgentState.COMPLETED,
+                pending_tools=[],
+            ),
+        )
+
+    def resume(self) -> Generator[StreamEvent, None, None]:
+        """
+        Resume execution after user approval.
+
+        Yields the same StreamEvent types as stream().
+        """
+        if not self._graph or not self._session_id:
+            raise RuntimeError("No active session to resume")
+
+        config = self._get_config()
+
+        # Resume from checkpoint (pass None to continue)
+        for event in self._graph.stream(None, config, stream_mode="updates"):
+            for node, data in event.items():
+                msgs = data.get("messages", [])
+                for msg in msgs:
+                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        for tc in msg.tool_calls:
+                            yield StreamEvent(
+                                type="tool_call",
+                                data=PendingToolCall(
+                                    tool_name=tc["name"],
+                                    tool_args=tc.get("args", {}),
+                                    tool_call_id=tc.get("id", ""),
+                                ),
+                            )
+
+                    elif hasattr(msg, "name") and msg.name:
+                        content = getattr(msg, "content", "") or ""
+                        yield StreamEvent(
+                            type="tool_result",
+                            data={"tool": msg.name, "result": content},
+                        )
+
+                    elif hasattr(msg, "content") and msg.content and node == "agent":
+                        yield StreamEvent(type="text", data=msg.content)
+
+        # Check state again
+        state = self._graph.get_state(config)
+
+        if state.next:
+            pending = self._extract_pending_tools(state)
+            if self._needs_approval(pending):
+                yield StreamEvent(
+                    type="interrupt",
+                    data=InvokeResult(
+                        response=None,
+                        state=AgentState.INTERRUPTED,
+                        pending_tools=pending,
+                    ),
+                )
+                return
+            else:
+                yield from self.resume()
+                return
+
+        all_messages = state.values.get("messages", [])
+        yield StreamEvent(
+            type="complete",
+            data=InvokeResult(
+                response=self._extract_response(all_messages),
+                state=AgentState.COMPLETED,
+                pending_tools=[],
+            ),
+        )
+
+    def cancel(self) -> InvokeResult:
+        """
+        Cancel pending tool calls.
+
+        Returns an InvokeResult indicating the agent should respond
+        without executing the pending tools.
+        """
+        # TODO: Implement proper cancellation by updating graph state
+        # For now, return a result indicating cancellation
+        return InvokeResult(
+            response="Shell command cancelled by user.",
+            state=AgentState.COMPLETED,
+            pending_tools=[],
+        )
