@@ -1,6 +1,7 @@
 import json
 import os
 import platform
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from rich.spinner import Spinner
 SLIMCLAW_DIR = Path.home() / ".slimclaw"
 CONFIG_FILE = Path(__file__).parent / "config.json"
 console = Console()
+
+MAX_TOOL_RETRIES = 3
 
 
 def _get_git_branch() -> str:
@@ -96,7 +99,7 @@ def run_agent(user_input: str, chat_history: list) -> str:
     messages = chat_history + [HumanMessage(content=user_input)]
 
     final_text = ""
-    needs_shell_confirm = False
+    tool_failures = defaultdict(int)
 
     with Live(
         Spinner("dots", text=" thinking..."), console=console, refresh_per_second=10
@@ -115,11 +118,18 @@ def run_agent(user_input: str, chat_history: list) -> str:
                     elif hasattr(msg, "name") and msg.name:
                         # Tool result - show name and truncated content
                         content = getattr(msg, "content", "") or ""
-                        if (
-                            msg.name == "shell"
-                            and content.strip() == "NEEDS_CONFIRMATION"
-                        ):
-                            needs_shell_confirm = True
+
+                        # Track tool failures for retry limiting
+                        if content.startswith("ERROR") or content.startswith("FATAL"):
+                            tool_failures[msg.name] += 1
+                            if tool_failures[msg.name] >= MAX_TOOL_RETRIES:
+                                console.print(
+                                    f"[red]Tool {msg.name} failed {MAX_TOOL_RETRIES}x[/red]"
+                                )
+                                return f"Tool {msg.name} failed repeatedly: {content}"
+                        else:
+                            tool_failures[msg.name] = 0  # Reset on success
+
                         preview = (
                             content[:200] + "..." if len(content) > 200 else content
                         )
@@ -130,15 +140,10 @@ def run_agent(user_input: str, chat_history: list) -> str:
 
                     elif hasattr(msg, "content") and msg.content and node == "agent":
                         final_text = msg.content
-                        # live.update(Markdown(final_text))
-                        if not needs_shell_confirm:
-                            console.print(Markdown(final_text))
+                        console.print(Markdown(final_text))
 
         # Clear spinner before final output
         live.update("")
-
-    if needs_shell_confirm:
-        return "__SHELL_CONFIRM__"
 
     return final_text
 

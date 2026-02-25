@@ -6,7 +6,9 @@ from datetime import datetime
 from pathlib import Path
 
 from langchain_core.tools import StructuredTool
-from .base import SLIMCLAW_DIR, MEMORY_FILE
+
+from .base import MEMORY_FILE, SLIMCLAW_DIR
+from .types import err, ok
 
 # Sessions directory is relative to the project root
 SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
@@ -17,12 +19,19 @@ SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
 
 def memory_write(note: str) -> str:
     """Append a note to MEMORY.md in ~/.slimclaw/."""
-    SLIMCLAW_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    entry = f"\n- [{timestamp}] {note}\n"
-    with open(MEMORY_FILE, "a") as f:
-        f.write(entry)
-    return "Memory saved."
+    try:
+        SLIMCLAW_DIR.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        entry = f"\n- [{timestamp}] {note}\n"
+        with open(MEMORY_FILE, "a") as f:
+            f.write(entry)
+        return ok("Memory saved.")
+    except PermissionError:
+        return err(
+            "Permission denied writing to memory", "permission", recoverable=False
+        )
+    except Exception as e:
+        return err(f"Failed to save memory: {e}", "write_error")
 
 
 # ─── Memory Search ─────────────────────────────────────────────────────────────
@@ -44,7 +53,7 @@ def memory_search(query: str, case_insensitive: bool = True) -> str:
     try:
         pattern = re.compile(query, flags)
     except re.error as e:
-        return f"Invalid regex pattern: {e}"
+        return err(f"Invalid regex pattern: {e}", "regex_error")
 
     # Search MEMORY.md
     if MEMORY_FILE.exists():
@@ -61,9 +70,9 @@ def memory_search(query: str, case_insensitive: bool = True) -> str:
         results.extend(_search_sessions(pattern))
 
     if not results:
-        return f"No matches found for: {query}"
+        return ok(f"No matches found for: {query}")
 
-    return "\n".join(results[:50])  # Limit to 50 results
+    return ok("\n".join(results[:50]))
 
 
 def _search_file(file_path: Path, pattern: re.Pattern, base_dir: Path) -> list[str]:
@@ -125,22 +134,24 @@ def memory_get(path: str = "MEMORY.md", line_range: str = "") -> str:
     # Resolve path - must be under ~/.slimclaw/
     target = (SLIMCLAW_DIR / path).resolve()
     if not target.resolve().is_relative_to(SLIMCLAW_DIR.resolve()):
-        return f"Path must be under ~/.slimclaw/: {path}"
+        return err(f"Path must be under ~/.slimclaw/: {path}", "invalid_input")
 
     if not target.exists():
-        return f"Memory file not found: {path}"
+        return err(f"Memory file not found: {path}", "not_found")
 
     try:
         lines = target.read_text().splitlines()
+    except PermissionError:
+        return err(f"Permission denied: {path}", "permission", recoverable=False)
     except Exception as e:
-        return f"Could not read file: {e}"
+        return err(f"Could not read file: {e}", "read_error")
 
     total = len(lines)
     if total == 0:
-        return f"File is empty: {path}"
+        return ok(f"File is empty: {path}")
 
     if not line_range or not line_range.strip():
-        return "\n".join(lines)
+        return ok("\n".join(lines))
 
     # Parse line_range: "1-50" or "10" or "10,20,30"
     indices: set[int] = set()
@@ -163,10 +174,13 @@ def memory_get(path: str = "MEMORY.md", line_range: str = "") -> str:
                 continue
 
     if not indices:
-        return f"Invalid line range: {line_range}. File has {total} lines."
+        return err(
+            f"Invalid line range: {line_range}. File has {total} lines.",
+            "invalid_input",
+        )
 
     result_lines = [lines[i - 1] for i in sorted(indices)]
-    return "\n".join(result_lines)
+    return ok("\n".join(result_lines))
 
 
 # ─── Tool Exports ──────────────────────────────────────────────────────────────
