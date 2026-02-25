@@ -46,8 +46,7 @@ def main():
     )
 
     session_id, session_file, chat_history = new_session()
-    pending_input = None  # holds original input during shell confirmation
-
+    
     while True:
         try:
             user_input = console.input("[bold green]you>[/bold green] ").strip()
@@ -63,36 +62,7 @@ def main():
             console.print("[dim]Session reset.[/dim]\n")
             continue
 
-        # Shell confirmation reply
-        if pending_input is not None:
-            if user_input.lower() in ("y", "yes", "always"):
-                if user_input.lower() == "always":
-                    set_shell_preference(True)  # Set to always allow shell execution
-                    console.print("[dim]Preference saved — won't ask again.[/dim]")
-                else:
-                    shell_instance.allow_once()  # One-time allow for this run
-                response = run_agent(pending_input, chat_history)
-            else:
-                if user_input.lower() in ("n", "no", "never"):
-                    if user_input.lower() == "never":
-                        set_shell_preference(
-                            False
-                        )  # Set to never allow shell execution
-                        console.print(
-                            "[dim]Preference saved — shell execution disabled.[/dim]"
-                        )
-                response = "Shell command cancelled."
-            pending_input = None
-        else:
-            response = run_agent(user_input, chat_history)
-
-        if response == "__SHELL_CONFIRM__":
-            pending_input = user_input
-            console.print(
-                "[yellow]assistant>[/yellow] Run shell command? [y/n/always/never]: ",
-                end="",
-            )
-            continue
+        response = run_agent(user_input, chat_history)
 
         save_turn(session_file, "human", user_input)
         save_turn(session_file, "assistant", response)
