@@ -10,13 +10,13 @@ from pathlib import Path
 from typing import Generator, Optional
 
 from langchain_core.messages import HumanMessage, ToolMessage
-from langchain_ollama import ChatOllama
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
 from slimclaw.agent.models import InvokeResult, PendingToolCall, StreamEvent
 from slimclaw.agent.state import AgentState
 from slimclaw.config import load_config
+from slimclaw.llm import LLMConfig, create_llm
 from slimclaw.prompt import PromptContext, build_system_prompt
 from slimclaw.tools import TOOLS
 
@@ -86,8 +86,8 @@ class SlimclawAgent:
                 print(event.data.response)
     """
 
-    def __init__(self):
-        self._config = load_config()
+    def __init__(self, config: Optional[dict] = None):
+        self._config = config if config is not None else load_config()
         self._checkpointer = MemorySaver()
         self._session_id: Optional[str] = None
         self._graph = None  # Lazy init
@@ -95,11 +95,8 @@ class SlimclawAgent:
 
     def _build_graph(self):
         """Build the LangGraph agent with checkpointing."""
-        ollama_config = self._config["ollama"]
-        self._llm = ChatOllama(
-            model=ollama_config["model"],
-            base_url=ollama_config["base_url"],
-        )
+        llm_config = LLMConfig.from_dict(self._config.get("llm", {}))
+        self._llm = create_llm(llm_config)
 
         # Build prompt context
         env = _build_env_context()
