@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Generator, Optional
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_ollama import ChatOllama
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
@@ -203,6 +203,8 @@ class SlimclawAgent:
             {"messages": messages}, config, stream_mode="updates"
         ):
             for node, data in event.items():
+                if not isinstance(data, dict):
+                    continue
                 msgs = data.get("messages", [])
                 for msg in msgs:
                     # Tool call from agent
@@ -276,6 +278,8 @@ class SlimclawAgent:
         # Resume from checkpoint (pass None to continue)
         for event in self._graph.stream(None, config, stream_mode="updates"):
             for node, data in event.items():
+                if not isinstance(data, dict):
+                    continue
                 msgs = data.get("messages", [])
                 for msg in msgs:
                     if hasattr(msg, "tool_calls") and msg.tool_calls:
@@ -332,13 +336,40 @@ class SlimclawAgent:
         """
         Cancel pending tool calls.
 
-        Returns an InvokeResult indicating the agent should respond
-        without executing the pending tools.
+        Injects ToolMessages for cancelled tools into graph state,
+        then returns an InvokeResult indicating cancellation.
         """
-        # TODO: Implement proper cancellation by updating graph state
-        # For now, return a result indicating cancellation
+        if not self._graph or not self._session_id:
+            return InvokeResult(
+                response="No active session.",
+                state=AgentState.COMPLETED,
+                pending_tools=[],
+            )
+
+        config = self._get_config()
+        state = self._graph.get_state(config)
+        messages = state.values.get("messages", [])
+
+        # Find pending tool calls from the last AIMessage
+        tool_messages = []
+        for msg in reversed(messages):
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    tool_messages.append(
+                        ToolMessage(
+                            content="Cancelled by user.",
+                            tool_call_id=tc.get("id", ""),
+                            name=tc.get("name", ""),
+                        )
+                    )
+                break
+
+        # Update graph state with cancellation messages
+        if tool_messages:
+            self._graph.update_state(config, {"messages": tool_messages})
+
         return InvokeResult(
-            response="Shell command cancelled by user.",
+            response="Command cancelled by user.",
             state=AgentState.COMPLETED,
             pending_tools=[],
         )
