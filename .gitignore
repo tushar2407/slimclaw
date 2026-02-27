@@ -4,3 +4,6 @@ venv
 sessions
 .env
 workspace
+uv.lock
+.ruff_cache
+.claude

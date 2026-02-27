@@ -1,7 +1,8 @@
 """Read tool - read file contents."""
 
 from langchain_core.tools import StructuredTool
-from .base import resolve_path
+
+from slimclaw.tools.base import resolve_path
 
 
 def read(path: str) -> str:

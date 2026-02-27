@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "slimclaw"
+version = "0.1.0"
+description = "A local-first AI agent CLI powered by Ollama"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain-ollama",
+    "langchain",
+    "langchain-core",
+    "langgraph",
+    "ddgs",
+    "rich",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "ruff",
+]
+
+[project.scripts]
+slimclaw = "slimclaw:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/slimclaw"]

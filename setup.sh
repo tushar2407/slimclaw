@@ -1,14 +1,18 @@
 #!/bin/bash
 set -e
 
-if [ -d "venv" ]; then
-  echo "==> venv already exists, skipping install..."
+if [ -d ".venv" ]; then
+  echo "==> .venv already exists, skipping venv creation..."
 else
-  echo "==> Creating virtualenv and installing dependencies..."
-  python3 -m venv venv
-  source venv/bin/activate
-  pip install -r requirements.txt
+  echo "==> Creating virtualenv with uv..."
+  uv venv
 fi
+
+echo "==> Installing dependencies..."
+uv pip install -e ".[dev]"
+
+echo "==> Setting up pre-commit hooks..."
+uv run pre-commit install
 
 echo "==> Checking Ollama..."
 if ! command -v ollama &> /dev/null; then
@@ -38,4 +42,4 @@ if [ ! -f ~/.slimclaw/MEMORY.md ]; then
 fi
 
 echo ""
-echo "Setup complete. Run with: source venv/bin/activate && python main.py"
+echo "Setup complete. Run with: source .venv/bin/activate && python main.py"

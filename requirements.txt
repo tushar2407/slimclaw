@@ -1,7 +1,0 @@
-langchain-ollama
-langchain
-langchain-core
-langgraph
-copilotkit
-ddgs
-rich
