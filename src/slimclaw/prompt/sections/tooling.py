@@ -17,6 +17,10 @@ def build_tooling_section(tools: list) -> str:
         "memory": "Save a note to persistent memory (~/.slimclaw/MEMORY.md).",
         "memory_search": "Search memory files AND session history for a pattern. Returns matches with context.",
         "memory_get": "Read specific lines/sections from memory files (~/.slimclaw/). Use line_range e.g. '1-50' or '10'.",
+        "edit": "String replacement in files (old_string → new_string). Path can be a file path or glob pattern.",
+        "grep": "Regex search in files with optional context lines (-A/-B/-C).",
+        "find": "Glob pattern file search (e.g. '*.py', '**/*.md') under a base directory.",
+        "ls": "Directory listing. Names only by default; use long=True for details (mode, size, mtime).",
     }
 
     for tool in tools:
