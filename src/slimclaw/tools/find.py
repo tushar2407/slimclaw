@@ -40,4 +40,3 @@ tool = StructuredTool.from_function(
     name="find",
     description="Glob pattern file search (e.g. '*.py', '**/*.md') under a base directory. Returns absolute paths.",
 )
-

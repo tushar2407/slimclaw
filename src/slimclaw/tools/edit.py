@@ -72,4 +72,3 @@ tool = StructuredTool.from_function(
     name="edit",
     description="String replacement in files (old_string → new_string). Path can be a file path or glob pattern.",
 )
-

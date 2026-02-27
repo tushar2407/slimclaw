@@ -59,4 +59,3 @@ tool = StructuredTool.from_function(
     name="ls",
     description="Directory listing. Use long=True for details (mode, size, mtime). Defaults to names only.",
 )
-

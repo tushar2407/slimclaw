@@ -86,4 +86,3 @@ tool = StructuredTool.from_function(
     name="grep",
     description="Regex search in files with optional context lines (-A/-B). Path can be a file or directory.",
 )
-
