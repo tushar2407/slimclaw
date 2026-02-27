@@ -17,6 +17,12 @@ dependencies = [
     "rich",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "ruff",
+]
+
 [project.scripts]
 slimclaw = "slimclaw.cli.runner:main"
 

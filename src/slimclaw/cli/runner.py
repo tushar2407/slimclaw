@@ -12,7 +12,7 @@ from rich.markdown import Markdown
 from rich.spinner import Spinner
 
 from slimclaw.agent import AgentState, InvokeResult, SlimclawAgent, StreamEvent
-from slimclaw.config import load_config, save_config, get_config_path
+from slimclaw.config import load_config, save_config
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +45,9 @@ class Runner:
 
         while True:
             try:
-                user_input = self.console.input("[bold green]you>[/bold green] ").strip()
+                user_input = self.console.input(
+                    "[bold green]you>[/bold green] "
+                ).strip()
             except (KeyboardInterrupt, EOFError):
                 break
 
@@ -116,9 +118,7 @@ class Runner:
                     + "\n"
                 )
 
-    def _run_with_ui(
-        self, events: Generator[StreamEvent, None, None]
-    ) -> InvokeResult:
+    def _run_with_ui(self, events: Generator[StreamEvent, None, None]) -> InvokeResult:
         """
         Consume stream events and update Rich UI.
 
@@ -203,7 +203,9 @@ class Runner:
         else:
             if choice == "never":
                 self._set_shell_preference(False)
-                self.console.print("[dim]Preference saved — shell execution disabled.[/dim]")
+                self.console.print(
+                    "[dim]Preference saved — shell execution disabled.[/dim]"
+                )
             # Cancel
             return self.agent.cancel()
 

@@ -9,6 +9,7 @@ from langchain_core.tools import StructuredTool
 
 from slimclaw.tools.base import MEMORY_FILE, SLIMCLAW_DIR
 
+
 # Sessions directory is at project root/data/sessions
 # We find it relative to the working directory
 def _get_sessions_dir() -> Path:
