@@ -225,3 +225,8 @@ class Runner:
             else:
                 parts.append(f"{k}={v_str!r}")
         return ", ".join(parts)
+
+
+def main():
+    runner = Runner()
+    runner.run()

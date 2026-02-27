@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.scripts]
-slimclaw = "slimclaw.cli.runner:main"
+slimclaw = "slimclaw:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/slimclaw"]
