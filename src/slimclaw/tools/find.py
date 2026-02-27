@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from langchain_core.tools import StructuredTool
 
 from slimclaw.tools.base import resolve_path
