@@ -7,19 +7,8 @@ from pathlib import Path
 
 from langchain_core.tools import StructuredTool
 
-from slimclaw.tools.base import MEMORY_FILE, SLIMCLAW_DIR
-
-
-# Sessions directory is at project root/data/sessions
-# We find it relative to the working directory
-def _get_sessions_dir() -> Path:
-    """Get the sessions directory path."""
-    # Try data/sessions from cwd first
-    cwd_sessions = Path.cwd() / "data" / "sessions"
-    if cwd_sessions.exists():
-        return cwd_sessions
-    # Fallback to old location for backwards compatibility
-    return Path.cwd() / "sessions"
+from slimclaw.constants import SESSIONS_DIR, SLIMCLAW_DIR
+from slimclaw.tools.constants import MEMORY_FILE
 
 
 # ─── Memory Write ──────────────────────────────────────────────────────────────
@@ -44,7 +33,7 @@ def memory_search(query: str, case_insensitive: bool = True) -> str:
     Searches:
     - ~/.slimclaw/MEMORY.md
     - ~/.slimclaw/memory/*.md
-    - data/sessions/*.jsonl (conversation history)
+    - ~/.slimclaw/sessions/*.jsonl (conversation history)
 
     Returns matching lines with file path and line numbers.
     """
@@ -67,9 +56,8 @@ def memory_search(query: str, case_insensitive: bool = True) -> str:
             results.extend(_search_file(md_file, pattern, SLIMCLAW_DIR))
 
     # Search session files
-    sessions_dir = _get_sessions_dir()
-    if sessions_dir.exists():
-        results.extend(_search_sessions(pattern, sessions_dir))
+    if SESSIONS_DIR.exists():
+        results.extend(_search_sessions(pattern, SESSIONS_DIR))
 
     if not results:
         return f"No matches found for: {query}"

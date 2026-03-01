@@ -13,17 +13,8 @@ from rich.spinner import Spinner
 
 from slimclaw.agent import AgentState, InvokeResult, SlimclawAgent, StreamEvent
 from slimclaw.config import load_config, save_config
+from slimclaw.constants import SESSIONS_DIR
 from slimclaw.llm import LLMConfigurationError, Provider, get_models
-
-# ─── Paths ────────────────────────────────────────────────────────────────────
-
-
-def _get_sessions_dir() -> Path:
-    """Get the sessions directory path."""
-    # Try data/sessions from cwd first
-    sessions_dir = Path.cwd() / "data" / "sessions"
-    sessions_dir.mkdir(parents=True, exist_ok=True)
-    return sessions_dir
 
 
 # ─── Runner Class ─────────────────────────────────────────────────────────────
@@ -37,7 +28,8 @@ class Runner:
         self.console = Console()
         self.session_id: Optional[str] = None
         self.session_file: Optional[Path] = None
-        self.sessions_dir = _get_sessions_dir()
+        self.sessions_dir = SESSIONS_DIR
+        self.sessions_dir.mkdir(parents=True, exist_ok=True)
 
     def run(self) -> None:
         """Main REPL loop."""

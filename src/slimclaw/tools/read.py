@@ -2,7 +2,7 @@
 
 from langchain_core.tools import StructuredTool
 
-from slimclaw.tools.base import resolve_path
+from slimclaw.tools.utils import resolve_path
 
 
 def read(path: str) -> str:

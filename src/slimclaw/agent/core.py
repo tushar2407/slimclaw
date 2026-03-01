@@ -1,12 +1,5 @@
 """SlimClaw Agent - class-based agent with checkpointing and streaming."""
 
-import os
-import platform
-import socket
-import subprocess
-import sys
-from datetime import datetime
-from pathlib import Path
 from typing import Generator, Optional
 
 from langchain_core.messages import HumanMessage, ToolMessage
@@ -15,57 +8,12 @@ from langgraph.prebuilt import create_react_agent
 
 from slimclaw.agent.models import InvokeResult, PendingToolCall, StreamEvent
 from slimclaw.agent.state import AgentState
+from slimclaw.agent.utils import build_env_context
 from slimclaw.config import load_config
 from slimclaw.llm import Model, create_llm
 from slimclaw.prompt import PromptContext, build_system_prompt
 from slimclaw.tools import TOOLS
-
-# ─── Paths ────────────────────────────────────────────────────────────────────
-
-SLIMCLAW_DIR = Path.home() / ".slimclaw"
-
-
-# ─── Helper Functions ─────────────────────────────────────────────────────────
-
-
-def _get_git_branch() -> Optional[str]:
-    """Get current git branch, or None if not in a git repo."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except Exception:
-        pass
-    return None
-
-
-def _build_env_context() -> dict:
-    """Build a dictionary of environmental context for the agent."""
-    ctx = {
-        "cwd": os.getcwd(),
-        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S %A"),
-        "platform": platform.system(),
-        "platform_version": platform.release(),
-        "hostname": socket.gethostname(),
-        "user": os.environ.get("USER", os.environ.get("USERNAME", "unknown")),
-        "home": str(Path.home()),
-        "shell": os.environ.get("SHELL", "unknown"),
-        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-    }
-
-    git_branch = _get_git_branch()
-    if git_branch:
-        ctx["git_branch"] = git_branch
-
-    return ctx
-
-
-# ─── SlimclawAgent Class ──────────────────────────────────────────────────────
+from slimclaw.constants import SLIMCLAW_DIR
 
 
 class SlimclawAgent:
@@ -99,7 +47,7 @@ class SlimclawAgent:
         self._llm = create_llm(model)
 
         # Build prompt context
-        env = _build_env_context()
+        env = build_env_context()
         soul = (
             (SLIMCLAW_DIR / "SOUL.md").read_text()
             if (SLIMCLAW_DIR / "SOUL.md").exists()
