@@ -6,7 +6,6 @@ from typing import Literal, Optional, Union
 from slimclaw.agent.state import AgentState
 
 
-# Stream event kinds (aligned with llm folder's Enum-based typing)
 StreamEventType = Literal["tool_call", "tool_result", "text", "interrupt", "complete"]
 
 
