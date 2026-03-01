@@ -1,9 +1,12 @@
-"""Model definitions for agent execution."""
+"""Type definitions for agent execution."""
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Literal, Optional, Union
 
 from slimclaw.agent.state import AgentState
+
+
+StreamEventType = Literal["tool_call", "tool_result", "text", "interrupt", "complete"]
 
 
 @dataclass
@@ -35,5 +38,5 @@ class InvokeResult:
 class StreamEvent:
     """Events yielded during streaming execution."""
 
-    type: str  # "tool_call", "tool_result", "text", "interrupt", "complete"
-    data: Any  # Tool info, result content, text chunk, or InvokeResult
+    type: StreamEventType
+    data: Union[PendingToolCall, dict, str, InvokeResult]
