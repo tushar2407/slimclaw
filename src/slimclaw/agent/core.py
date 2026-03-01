@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
-from slimclaw.agent.models import InvokeResult, PendingToolCall, StreamEvent
+from slimclaw.agent.types import InvokeResult, PendingToolCall, StreamEvent
 from slimclaw.agent.state import AgentState
 from slimclaw.config import load_config
 from slimclaw.llm import Model, create_llm

@@ -1,4 +1,4 @@
-"""Model definitions for agent execution."""
+"""Type definitions for agent execution."""
 
 from dataclasses import dataclass
 from typing import Any, Optional
