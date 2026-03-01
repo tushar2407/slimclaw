@@ -13,16 +13,8 @@ from rich.spinner import Spinner
 
 from slimclaw.agent import AgentState, InvokeResult, SlimclawAgent, StreamEvent
 from slimclaw.config import load_config, save_config
-
-# ─── Paths ────────────────────────────────────────────────────────────────────
-
-
-def _get_sessions_dir() -> Path:
-    """Get the sessions directory path."""
-    # Try data/sessions from cwd first
-    sessions_dir = Path.cwd() / "data" / "sessions"
-    sessions_dir.mkdir(parents=True, exist_ok=True)
-    return sessions_dir
+from slimclaw.constants import SESSIONS_DIR
+from slimclaw.llm import LLMConfigurationError, Provider, get_models
 
 
 # ─── Runner Class ─────────────────────────────────────────────────────────────
@@ -36,7 +28,8 @@ class Runner:
         self.console = Console()
         self.session_id: Optional[str] = None
         self.session_file: Optional[Path] = None
-        self.sessions_dir = _get_sessions_dir()
+        self.sessions_dir = SESSIONS_DIR
+        self.sessions_dir.mkdir(parents=True, exist_ok=True)
 
     def run(self) -> None:
         """Main REPL loop."""
@@ -74,9 +67,16 @@ class Runner:
 
     def _print_banner(self) -> None:
         """Print welcome banner."""
+        config = load_config()
+        llm_config = config.get("llm", {})
+        provider = llm_config.get("provider", "ollama")
+        model = llm_config.get("model", "qwen2.5:7b")
+
         self.console.print(
-            "[bold cyan]slimclaw[/bold cyan] — type [bold]/exit[/bold] to quit, "
-            "[bold]/new[/bold] to reset session\n"
+            f"[bold cyan]slimclaw[/bold cyan] — using [green]{provider}[/green]/"
+            f"[green]{model}[/green]\n"
+            "  [bold]/exit[/bold] quit  [bold]/new[/bold] reset  "
+            "[bold]/model[/bold] change model\n"
         )
 
     def _handle_command(self, user_input: str) -> bool:
@@ -93,7 +93,93 @@ class Runner:
             self.console.print("[dim]Session reset.[/dim]\n")
             return True
 
+        if user_input == "/model":
+            self._prompt_model_selection()
+            return True
+
         return False
+
+    def _prompt_model_selection(self) -> None:
+        """Interactive model selection flow."""
+        # Step 1: Select provider
+        providers = list(Provider)
+        self.console.print("\n[bold]Select provider:[/bold]")
+        for i, p in enumerate(providers, 1):
+            self.console.print(f"  {i}. {p.value}")
+
+        try:
+            choice = self.console.input("[bold yellow]>[/bold yellow] ").strip()
+            if not choice:
+                self.console.print("[dim]Cancelled.[/dim]\n")
+                return
+            provider_idx = int(choice) - 1
+            if provider_idx < 0 or provider_idx >= len(providers):
+                self.console.print("[red]Invalid choice.[/red]\n")
+                return
+            provider = providers[provider_idx]
+        except (ValueError, KeyboardInterrupt, EOFError):
+            self.console.print("[dim]Cancelled.[/dim]\n")
+            return
+
+        # Step 2: Select model
+        models = get_models(provider)
+        self.console.print(f"\n[bold]Select {provider.value} model:[/bold]")
+        for i, m in enumerate(models, 1):
+            self.console.print(f"  {i}. [cyan]{m.name}[/cyan] — {m.description}")
+
+        try:
+            choice = self.console.input("[bold yellow]>[/bold yellow] ").strip()
+            if not choice:
+                self.console.print("[dim]Cancelled.[/dim]\n")
+                return
+            model_idx = int(choice) - 1
+            if model_idx < 0 or model_idx >= len(models):
+                self.console.print("[red]Invalid choice.[/red]\n")
+                return
+            model = models[model_idx]
+        except (ValueError, KeyboardInterrupt, EOFError):
+            self.console.print("[dim]Cancelled.[/dim]\n")
+            return
+
+        # Step 3: Persist or session-only?
+        self.console.print("\n[bold]Save to config?[/bold]")
+        self.console.print("  1. Yes, persist for future sessions")
+        self.console.print("  2. No, this session only")
+
+        try:
+            choice = self.console.input("[bold yellow]>[/bold yellow] ").strip()
+            persist = choice == "1"
+        except (KeyboardInterrupt, EOFError):
+            persist = False
+
+        # Apply selection
+        config = load_config()
+        config["llm"] = {
+            "provider": provider.value,
+            "model": model.id,
+        }
+        if provider == Provider.OLLAMA:
+            config["llm"]["base_url"] = "http://localhost:11434"
+
+        if persist:
+            save_config(config)
+            self.console.print(
+                f"[green]Saved![/green] Using {provider.value}/{model.id}\n"
+            )
+        else:
+            self.console.print(
+                f"[green]Set for this session:[/green] {provider.value}/{model.id}\n"
+            )
+
+        # Reinitialize agent with new config
+        try:
+            self.agent = SlimclawAgent(config)
+            self._new_session()
+        except LLMConfigurationError as e:
+            self.console.print(f"[red]Error:[/red] {e}\n")
+            # Revert to previous agent
+            self.agent = SlimclawAgent()
+            self._new_session()
 
     def _new_session(self) -> None:
         """Create a new session."""

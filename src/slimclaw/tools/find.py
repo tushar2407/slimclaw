@@ -1,6 +1,8 @@
+"""Search for files matching a glob pattern."""
+
 from langchain_core.tools import StructuredTool
 
-from slimclaw.tools.base import resolve_path
+from slimclaw.tools.utils import resolve_path
 
 
 def find(pattern: str, base_dir: str = ".") -> str:

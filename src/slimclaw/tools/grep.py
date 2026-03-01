@@ -1,10 +1,12 @@
+"""Search for a regex pattern in files under a path."""
+
 import re
 from pathlib import Path
 from typing import List
 
 from langchain_core.tools import StructuredTool
 
-from slimclaw.tools.base import resolve_path
+from slimclaw.tools.utils import resolve_path
 
 
 def grep(

@@ -1,9 +1,11 @@
+"""Replace all occurrences of old string with new string in the given file or files."""
+
 from pathlib import Path
 from typing import List
 
 from langchain_core.tools import StructuredTool
 
-from slimclaw.tools.base import resolve_path
+from slimclaw.tools.utils import resolve_path
 
 
 def edit(path: str, old_string: str, new_string: str) -> str:

@@ -4,41 +4,27 @@ import json
 from pathlib import Path
 from typing import Any
 
-# Config file is at project root (two levels up from this file when installed)
-# But we use a flexible approach to find it
-_CONFIG_PATHS = [
-    Path.cwd() / "config.json",  # Current working directory
-    Path(__file__).parent.parent.parent.parent.parent / "config.json",  # Project root
-]
+from slimclaw.config.constants import DEFAULT_CONFIG, CONFIG_FILE, SLIMCLAW_DIR
 
 
-def get_config_path() -> Path:
-    """Find the config file path."""
-    for path in _CONFIG_PATHS:
-        if path.exists():
-            return path
-    # Default to cwd
-    return Path.cwd() / "config.json"
+def _ensure_config_dir() -> None:
+    """Ensure ~/.slimclaw/ directory exists."""
+    SLIMCLAW_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_config() -> dict[str, Any]:
-    """Load configuration from config.json."""
-    config_path = get_config_path()
-    if config_path.exists():
-        return json.loads(config_path.read_text())
-    # Return defaults if no config exists
-    return {
-        "ollama": {
-            "model": "qwen2.5:7b",
-            "base_url": "http://localhost:11434",
-        },
-        "shell": {
-            "auto_run": None,
-        },
-    }
+    """Load configuration from ~/.slimclaw/config.json."""
+    if CONFIG_FILE.exists():
+        return json.loads(CONFIG_FILE.read_text())
+    return DEFAULT_CONFIG.copy()
 
 
 def save_config(config: dict[str, Any]) -> None:
-    """Save configuration to config.json."""
-    config_path = get_config_path()
-    config_path.write_text(json.dumps(config, indent=2))
+    """Save configuration to ~/.slimclaw/config.json."""
+    _ensure_config_dir()
+    CONFIG_FILE.write_text(json.dumps(config, indent=2))
+
+
+def get_config_path() -> Path:
+    """Get the config file path."""
+    return CONFIG_FILE
