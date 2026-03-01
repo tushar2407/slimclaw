@@ -1,4 +1,4 @@
-"""Model registry - loads models from JSON."""
+"""Model utility functions"""
 
 import json
 import subprocess
