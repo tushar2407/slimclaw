@@ -16,7 +16,7 @@ from langgraph.prebuilt import create_react_agent
 from slimclaw.agent.models import InvokeResult, PendingToolCall, StreamEvent
 from slimclaw.agent.state import AgentState
 from slimclaw.config import load_config
-from slimclaw.llm import LLMConfig, create_llm
+from slimclaw.llm import Model, create_llm
 from slimclaw.prompt import PromptContext, build_system_prompt
 from slimclaw.tools import TOOLS
 
@@ -95,8 +95,8 @@ class SlimclawAgent:
 
     def _build_graph(self):
         """Build the LangGraph agent with checkpointing."""
-        llm_config = LLMConfig.from_dict(self._config.get("llm", {}))
-        self._llm = create_llm(llm_config)
+        model = Model.from_config(self._config.get("llm", {}))
+        self._llm = create_llm(model)
 
         # Build prompt context
         env = _build_env_context()

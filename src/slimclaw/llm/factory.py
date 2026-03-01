@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from slimclaw.llm.types import LLMConfig, Provider
+from slimclaw.llm.types import Model, Provider
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,12 +17,12 @@ class LLMConfigurationError(Exception):
     pass
 
 
-def create_llm(config: LLMConfig) -> BaseChatModel:
+def create_llm(model: Model) -> BaseChatModel:
     """
     Factory function to create the appropriate LangChain chat model.
 
     Args:
-        config: LLMConfig with provider and model settings
+        model: Model with provider and model settings
 
     Returns:
         A LangChain BaseChatModel instance
@@ -30,27 +30,27 @@ def create_llm(config: LLMConfig) -> BaseChatModel:
     Raises:
         LLMConfigurationError: If required API keys are missing or config is invalid
     """
-    if config.provider == Provider.OLLAMA:
-        return _create_ollama(config)
-    elif config.provider == Provider.OPENAI:
-        return _create_openai(config)
-    elif config.provider == Provider.ANTHROPIC:
-        return _create_anthropic(config)
+    if model.provider == Provider.OLLAMA:
+        return _create_ollama(model)
+    elif model.provider == Provider.OPENAI:
+        return _create_openai(model)
+    elif model.provider == Provider.ANTHROPIC:
+        return _create_anthropic(model)
     else:
-        raise LLMConfigurationError(f"Unknown provider: {config.provider}")
+        raise LLMConfigurationError(f"Unknown provider: {model.provider}")
 
 
-def _create_ollama(config: LLMConfig) -> BaseChatModel:
+def _create_ollama(model: Model) -> BaseChatModel:
     """Create ChatOllama instance."""
     from langchain_ollama import ChatOllama
 
     return ChatOllama(
-        model=config.model,
-        base_url=config.base_url or "http://localhost:11434",
+        model=model.id,
+        base_url=model.base_url or "http://localhost:11434",
     )
 
 
-def _create_openai(config: LLMConfig) -> BaseChatModel:
+def _create_openai(model: Model) -> BaseChatModel:
     """Create ChatOpenAI instance."""
     from langchain_openai import ChatOpenAI
 
@@ -61,12 +61,12 @@ def _create_openai(config: LLMConfig) -> BaseChatModel:
         )
 
     return ChatOpenAI(
-        model=config.model,
+        model=model.id,
         api_key=api_key,
     )
 
 
-def _create_anthropic(config: LLMConfig) -> BaseChatModel:
+def _create_anthropic(model: Model) -> BaseChatModel:
     """Create ChatAnthropic instance."""
     from langchain_anthropic import ChatAnthropic
 
@@ -78,6 +78,6 @@ def _create_anthropic(config: LLMConfig) -> BaseChatModel:
         )
 
     return ChatAnthropic(
-        model=config.model,
+        model=model.id,
         api_key=api_key,
     )

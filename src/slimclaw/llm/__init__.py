@@ -1,23 +1,19 @@
 """LLM provider factory module."""
 
 from slimclaw.llm.factory import LLMConfigurationError, create_llm
-from slimclaw.llm.models import (
-    MODELS_BY_PROVIDER,
-    ModelInfo,
+from slimclaw.llm.utils import (
     get_default_model,
     get_model,
     get_models,
 )
-from slimclaw.llm.types import LLMConfig, Provider
+from slimclaw.llm.types import Model, Provider
 
 __all__ = [
     "create_llm",
-    "LLMConfig",
+    "Model",
     "Provider",
     "LLMConfigurationError",
-    "ModelInfo",
     "get_models",
     "get_model",
     "get_default_model",
-    "MODELS_BY_PROVIDER",
 ]

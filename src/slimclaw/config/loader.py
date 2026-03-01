@@ -4,21 +4,26 @@ import json
 from pathlib import Path
 from typing import Any
 
-# Config file is at project root (two levels up from this file when installed)
-# But we use a flexible approach to find it
-_CONFIG_PATHS = [
-    Path.cwd() / "config.json",  # Current working directory
-    Path(__file__).parent.parent.parent.parent.parent / "config.json",  # Project root
-]
+# Config lives in ~/.slimclaw/
+SLIMCLAW_DIR = Path.home() / ".slimclaw"
+CONFIG_FILE = SLIMCLAW_DIR / "config.json"
+
+# Default configuration
+DEFAULT_CONFIG: dict[str, Any] = {
+    "llm": {
+        "provider": "ollama",
+        "model": "qwen2.5:7b",
+        "base_url": "http://localhost:11434",
+    },
+    "shell": {
+        "auto_run": None,
+    },
+}
 
 
-def get_config_path() -> Path:
-    """Find the config file path."""
-    for path in _CONFIG_PATHS:
-        if path.exists():
-            return path
-    # Default to cwd
-    return Path.cwd() / "config.json"
+def _ensure_config_dir() -> None:
+    """Ensure ~/.slimclaw/ directory exists."""
+    SLIMCLAW_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _migrate_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -48,25 +53,21 @@ def _migrate_config(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_config() -> dict[str, Any]:
-    """Load configuration from config.json."""
-    config_path = get_config_path()
-    if config_path.exists():
-        config = json.loads(config_path.read_text())
+    """Load configuration from ~/.slimclaw/config.json."""
+    if CONFIG_FILE.exists():
+        config = json.loads(CONFIG_FILE.read_text())
         return _migrate_config(config)
-    # Return defaults if no config exists - using new format
-    return {
-        "llm": {
-            "provider": "ollama",
-            "model": "qwen2.5:7b",
-            "base_url": "http://localhost:11434",
-        },
-        "shell": {
-            "auto_run": None,
-        },
-    }
+
+    # Return defaults if no config exists
+    return DEFAULT_CONFIG.copy()
 
 
 def save_config(config: dict[str, Any]) -> None:
-    """Save configuration to config.json."""
-    config_path = get_config_path()
-    config_path.write_text(json.dumps(config, indent=2))
+    """Save configuration to ~/.slimclaw/config.json."""
+    _ensure_config_dir()
+    CONFIG_FILE.write_text(json.dumps(config, indent=2))
+
+
+def get_config_path() -> Path:
+    """Get the config file path."""
+    return CONFIG_FILE
