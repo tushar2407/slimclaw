@@ -1,6 +1,0 @@
-{"role": "human", "content": "can you find plan.md?", "ts": "2026-02-27T00:49:30.302216"}
-{"role": "assistant", "content": "The file `plan.md` was not found in the current directory or its subdirectories. If you believe it should be there, please check the file name or location, or let me know if you need assistance with something else.", "ts": "2026-02-27T00:49:30.302481"}
-{"role": "human", "content": "search it throughout my computer", "ts": "2026-02-27T00:50:23.433038"}
-{"role": "assistant", "content": "The search for `plan.md` timed out. Searching the entire computer can take a while. Do you want to try searching in specific directories, or should I narrow down the search?", "ts": "2026-02-27T00:50:23.433589"}
-{"role": "human", "content": "try again", "ts": "2026-02-27T00:51:04.365819"}
-{"role": "assistant", "content": "The search is still timing out. This may be due to the large number of files in your home directory. Would you like to specify a particular subdirectory to search in, or would you prefer to look for keywords in files instead?", "ts": "2026-02-27T00:51:04.366080"}
