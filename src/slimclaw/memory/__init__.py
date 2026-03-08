@@ -7,7 +7,6 @@ from slimclaw.memory.embeddings import (
     EmbeddingStore,
     SearchResult,
     get_embedding,
-    get_embedding_store,
 )
 from slimclaw.memory.search import memory_get, memory_search, memory_write
 
@@ -20,7 +19,6 @@ __all__ = [
     "EmbeddingStore",
     "SearchResult",
     "get_embedding",
-    "get_embedding_store",
     # Consolidation
     "MemoryConsolidator",
     "extract_memories",

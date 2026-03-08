@@ -1,103 +1,16 @@
-"""Embeddings - vector storage and retrieval for semantic search."""
+"""Embedding store - SQLite storage and search for embeddings."""
 
 import hashlib
-import os
 import sqlite3
-from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
 
 from slimclaw.config import DB_PATH
+from slimclaw.memory.embeddings.types import SearchResult
 from slimclaw.sessions.manager import get_connection
-
-# ─── Embedding Provider ────────────────────────────────────────────────────────
-
-
-class EmbeddingProvider(Enum):
-    """Supported embedding providers."""
-
-    OLLAMA = "ollama"
-    OPENAI = "openai"
-
-
-DEFAULT_MODELS = {
-    EmbeddingProvider.OLLAMA: "nomic-embed-text",
-    EmbeddingProvider.OPENAI: "text-embedding-ada-002",
-}
-
-
-def get_embedding(
-    text: str,
-    provider: EmbeddingProvider = EmbeddingProvider.OLLAMA,
-    model: Optional[str] = None,
-) -> np.ndarray:
-    """Get embedding vector for text."""
-    model = model or DEFAULT_MODELS[provider]
-
-    if provider == EmbeddingProvider.OLLAMA:
-        return _get_ollama_embedding(text, model)
-    elif provider == EmbeddingProvider.OPENAI:
-        return _get_openai_embedding(text, model)
-    else:
-        raise ValueError(f"Unsupported embedding provider: {provider}")
-
-
-def _get_ollama_embedding(text: str, model: str) -> np.ndarray:
-    """Get embedding from Ollama."""
-    try:
-        import ollama
-
-        response = ollama.embeddings(model=model, prompt=text)
-        return np.array(response["embedding"], dtype=np.float32)
-    except ImportError:
-        raise ValueError("ollama package not installed. Run: pip install ollama")
-    except Exception as e:
-        raise ValueError(f"Ollama embedding failed: {e}")
-
-
-def _get_openai_embedding(text: str, model: str) -> np.ndarray:
-    """Get embedding from OpenAI."""
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
-
-    try:
-        from openai import OpenAI
-
-        client = OpenAI(api_key=api_key)
-        response = client.embeddings.create(input=text, model=model)
-        return np.array(response.data[0].embedding, dtype=np.float32)
-    except ImportError:
-        raise ValueError("openai package not installed. Run: pip install openai")
-    except Exception as e:
-        raise ValueError(f"OpenAI embedding failed: {e}")
-
-
-def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    """Compute cosine similarity between two vectors."""
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return float(np.dot(a, b) / (norm_a * norm_b))
-
-
-# ─── Embedding Store ───────────────────────────────────────────────────────────
-
-
-@dataclass
-class SearchResult:
-    """Result from embedding search."""
-
-    session_key: str
-    message_index: int
-    content_hash: str
-    similarity: float
-
 
 _EMBEDDINGS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS embeddings (
@@ -275,15 +188,3 @@ class EmbeddingStore:
         else:
             row = conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()
         return row[0]
-
-
-# Default store instance
-_default_store: EmbeddingStore | None = None
-
-
-def get_embedding_store() -> EmbeddingStore:
-    """Get the default EmbeddingStore instance."""
-    global _default_store
-    if _default_store is None:
-        _default_store = EmbeddingStore()
-    return _default_store

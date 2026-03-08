@@ -32,6 +32,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
 }
 
+DEFAULT_EMBEDDING_MODELS: dict[str, str] = {
+    "ollama": "nomic-embed-text",
+    "openai": "text-embedding-ada-002",
+}
+
 
 # ─── Config File Operations ────────────────────────────────────────────────────
 

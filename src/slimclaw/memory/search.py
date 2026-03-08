@@ -78,8 +78,8 @@ def _semantic_search(
     try:
         from slimclaw.memory.embeddings import (
             EmbeddingProvider,
+            EmbeddingStore,
             get_embedding,
-            get_embedding_store,
         )
     except ImportError:
         return "Embeddings module not available. Install numpy and ollama/openai."
@@ -87,7 +87,7 @@ def _semantic_search(
     try:
         query_embedding = get_embedding(query, provider=EmbeddingProvider.OLLAMA)
 
-        store = get_embedding_store()
+        store = EmbeddingStore()
         results = store.search(
             query_embedding=query_embedding,
             session_key=session_key,
