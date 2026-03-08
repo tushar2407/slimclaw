@@ -5,8 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from slimclaw.config import SESSIONS_DIR
-from slimclaw.sessions import get_session_manager
+from slimclaw.config import DB_PATH, SESSIONS_DIR
+from slimclaw.sessions import SessionManager
 
 
 class MessageArchive:
@@ -20,6 +20,7 @@ class MessageArchive:
         """
         self._sessions_dir = sessions_dir or SESSIONS_DIR
         self._message_counts: dict[str, int] = {}
+        self._session_mgr = SessionManager(DB_PATH)
 
     def get_archive_path(self, session_key: str) -> Path:
         """Get JSONL archive path for a session.
@@ -56,8 +57,7 @@ class MessageArchive:
         now = datetime.now().isoformat()
 
         # Update session last_active_at
-        session_mgr = get_session_manager()
-        session_mgr.update_last_active(session_key)
+        self._session_mgr.update_last_active(session_key)
 
         # Append to JSONL archive
         with open(archive_path, "a") as f:
@@ -124,15 +124,3 @@ class MessageArchive:
                 except json.JSONDecodeError:
                     continue
         return messages
-
-
-# Default archive instance
-_default_archive: MessageArchive | None = None
-
-
-def get_archive() -> MessageArchive:
-    """Get the default MessageArchive instance."""
-    global _default_archive
-    if _default_archive is None:
-        _default_archive = MessageArchive()
-    return _default_archive

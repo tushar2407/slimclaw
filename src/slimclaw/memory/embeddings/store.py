@@ -12,21 +12,6 @@ from slimclaw.config import DB_PATH
 from slimclaw.memory.embeddings.types import SearchResult
 from slimclaw.sessions.manager import get_connection
 
-_EMBEDDINGS_SCHEMA = """
-CREATE TABLE IF NOT EXISTS embeddings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_key TEXT NOT NULL,
-    message_index INTEGER NOT NULL,
-    content_hash TEXT NOT NULL,
-    embedding BLOB NOT NULL,
-    created_at TEXT NOT NULL,
-    UNIQUE(session_key, message_index)
-);
-
-CREATE INDEX IF NOT EXISTS idx_embeddings_session ON embeddings(session_key);
-CREATE INDEX IF NOT EXISTS idx_embeddings_hash ON embeddings(content_hash);
-"""
-
 
 class EmbeddingStore:
     """Stores and searches embeddings in SQLite."""
@@ -39,19 +24,12 @@ class EmbeddingStore:
         """Initialize EmbeddingStore."""
         self._db_path = db_path or DB_PATH
         self._conn = conn
-        self._ensure_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get or create connection."""
         if self._conn is None:
             self._conn = get_connection(self._db_path)
         return self._conn
-
-    def _ensure_schema(self) -> None:
-        """Ensure embeddings table exists."""
-        conn = self._get_conn()
-        conn.executescript(_EMBEDDINGS_SCHEMA)
-        conn.commit()
 
     def close(self) -> None:
         """Close database connection."""

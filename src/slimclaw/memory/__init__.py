@@ -1,6 +1,6 @@
 """Memory module - archiving, embeddings, consolidation, and search."""
 
-from slimclaw.memory.archive import MessageArchive, get_archive
+from slimclaw.memory.archive import MessageArchive
 from slimclaw.memory.consolidator import MemoryConsolidator, extract_memories
 from slimclaw.memory.embeddings import (
     EmbeddingProvider,
@@ -13,7 +13,6 @@ from slimclaw.memory.search import memory_get, memory_search, memory_write
 __all__ = [
     # Archive
     "MessageArchive",
-    "get_archive",
     # Embeddings
     "EmbeddingProvider",
     "EmbeddingStore",

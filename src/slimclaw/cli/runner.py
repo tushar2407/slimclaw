@@ -11,7 +11,7 @@ from rich.spinner import Spinner
 from slimclaw.agent import AgentState, InvokeResult, SlimclawAgent, StreamEvent
 from slimclaw.config import DB_PATH, load_config, save_config
 from slimclaw.llm import LLMConfigurationError, Provider, get_models
-from slimclaw.memory import get_archive
+from slimclaw.memory import MessageArchive
 from slimclaw.sessions import Session, SessionManager
 
 # Optional embeddings support
@@ -38,7 +38,7 @@ class Runner:
         self.agent = SlimclawAgent()
         self.console = Console()
         self.db = SessionManager(DB_PATH)
-        self._archive = get_archive()
+        self._archive = MessageArchive()
         self.session: Optional[Session] = None
         self._cli_user = os.environ.get("USER", os.environ.get("USERNAME", "default"))
         self._embedding_store: Optional["EmbeddingStore"] = None

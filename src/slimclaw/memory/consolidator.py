@@ -9,7 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from slimclaw.config import DB_PATH, MEMORY_DIR
-from slimclaw.memory.archive import get_archive
+from slimclaw.memory.archive import MessageArchive
 from slimclaw.sessions.manager import get_connection
 
 # ─── Extraction Prompts ────────────────────────────────────────────────────────
@@ -77,20 +77,6 @@ def extract_memories(messages: list[dict], llm: BaseChatModel) -> str:
     return response.content
 
 
-# ─── Consolidation State Schema ────────────────────────────────────────────────
-
-_CONSOLIDATION_SCHEMA = """
-CREATE TABLE IF NOT EXISTS consolidation_state (
-    session_key TEXT PRIMARY KEY,
-    last_processed_index INTEGER DEFAULT 0,
-    last_consolidated_at TEXT
-);
-"""
-
-
-# ─── Memory Consolidator ───────────────────────────────────────────────────────
-
-
 class MemoryConsolidator:
     """Manages memory consolidation - extracts facts/summaries from conversations."""
 
@@ -111,20 +97,13 @@ class MemoryConsolidator:
         self._db_path = db_path or DB_PATH
         self._threshold = consolidation_threshold
         self._conn: Optional[sqlite3.Connection] = None
-        self._archive = get_archive()
-        self._ensure_schema()
+        self._archive = MessageArchive()
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get or create connection."""
         if self._conn is None:
             self._conn = get_connection(self._db_path)
         return self._conn
-
-    def _ensure_schema(self) -> None:
-        """Ensure consolidation_state table exists."""
-        conn = self._get_conn()
-        conn.executescript(_CONSOLIDATION_SCHEMA)
-        conn.commit()
 
     def close(self) -> None:
         """Close database connection."""
