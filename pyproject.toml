@@ -19,6 +19,8 @@ dependencies = [
     "ddgs",
     "rich",
     "python-dotenv",
+    "numpy",
+    "ollama",
 ]
 
 [project.optional-dependencies]

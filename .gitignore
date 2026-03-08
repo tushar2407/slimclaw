@@ -1,7 +1,6 @@
 __pycache__
 .venv
 venv
-sessions
 .env
 workspace
 uv.lock

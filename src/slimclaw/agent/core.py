@@ -9,11 +9,10 @@ from langgraph.prebuilt import create_react_agent
 from slimclaw.agent.state import AgentState
 from slimclaw.agent.types import InvokeResult, PendingToolCall, StreamEvent
 from slimclaw.agent.utils import build_env_context
-from slimclaw.config import load_config
+from slimclaw.config import SLIMCLAW_DIR, load_config
 from slimclaw.llm import Model, create_llm
 from slimclaw.prompt import PromptContext, build_system_prompt
 from slimclaw.tools import TOOLS
-from slimclaw.constants import SLIMCLAW_DIR
 
 
 class SlimclawAgent:

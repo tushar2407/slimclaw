@@ -1,0 +1,289 @@
+"""Embeddings - vector storage and retrieval for semantic search."""
+
+import hashlib
+import os
+import sqlite3
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
+
+from slimclaw.config import DB_PATH
+from slimclaw.sessions.manager import get_connection
+
+# ─── Embedding Provider ────────────────────────────────────────────────────────
+
+
+class EmbeddingProvider(Enum):
+    """Supported embedding providers."""
+
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+
+
+DEFAULT_MODELS = {
+    EmbeddingProvider.OLLAMA: "nomic-embed-text",
+    EmbeddingProvider.OPENAI: "text-embedding-ada-002",
+}
+
+
+def get_embedding(
+    text: str,
+    provider: EmbeddingProvider = EmbeddingProvider.OLLAMA,
+    model: Optional[str] = None,
+) -> np.ndarray:
+    """Get embedding vector for text."""
+    model = model or DEFAULT_MODELS[provider]
+
+    if provider == EmbeddingProvider.OLLAMA:
+        return _get_ollama_embedding(text, model)
+    elif provider == EmbeddingProvider.OPENAI:
+        return _get_openai_embedding(text, model)
+    else:
+        raise ValueError(f"Unsupported embedding provider: {provider}")
+
+
+def _get_ollama_embedding(text: str, model: str) -> np.ndarray:
+    """Get embedding from Ollama."""
+    try:
+        import ollama
+
+        response = ollama.embeddings(model=model, prompt=text)
+        return np.array(response["embedding"], dtype=np.float32)
+    except ImportError:
+        raise ValueError("ollama package not installed. Run: pip install ollama")
+    except Exception as e:
+        raise ValueError(f"Ollama embedding failed: {e}")
+
+
+def _get_openai_embedding(text: str, model: str) -> np.ndarray:
+    """Get embedding from OpenAI."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable not set")
+
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(api_key=api_key)
+        response = client.embeddings.create(input=text, model=model)
+        return np.array(response.data[0].embedding, dtype=np.float32)
+    except ImportError:
+        raise ValueError("openai package not installed. Run: pip install openai")
+    except Exception as e:
+        raise ValueError(f"OpenAI embedding failed: {e}")
+
+
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    """Compute cosine similarity between two vectors."""
+    norm_a = np.linalg.norm(a)
+    norm_b = np.linalg.norm(b)
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return float(np.dot(a, b) / (norm_a * norm_b))
+
+
+# ─── Embedding Store ───────────────────────────────────────────────────────────
+
+
+@dataclass
+class SearchResult:
+    """Result from embedding search."""
+
+    session_key: str
+    message_index: int
+    content_hash: str
+    similarity: float
+
+
+_EMBEDDINGS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS embeddings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_key TEXT NOT NULL,
+    message_index INTEGER NOT NULL,
+    content_hash TEXT NOT NULL,
+    embedding BLOB NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(session_key, message_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_embeddings_session ON embeddings(session_key);
+CREATE INDEX IF NOT EXISTS idx_embeddings_hash ON embeddings(content_hash);
+"""
+
+
+class EmbeddingStore:
+    """Stores and searches embeddings in SQLite."""
+
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        conn: Optional[sqlite3.Connection] = None,
+    ):
+        """Initialize EmbeddingStore."""
+        self._db_path = db_path or DB_PATH
+        self._conn = conn
+        self._ensure_schema()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """Get or create connection."""
+        if self._conn is None:
+            self._conn = get_connection(self._db_path)
+        return self._conn
+
+    def _ensure_schema(self) -> None:
+        """Ensure embeddings table exists."""
+        conn = self._get_conn()
+        conn.executescript(_EMBEDDINGS_SCHEMA)
+        conn.commit()
+
+    def close(self) -> None:
+        """Close database connection."""
+        if self._conn:
+            self._conn.close()
+            self._conn = None
+
+    def add_embedding(
+        self,
+        session_key: str,
+        message_index: int,
+        content: str,
+        embedding: np.ndarray,
+    ) -> None:
+        """Store an embedding for a message."""
+        conn = self._get_conn()
+        content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
+        embedding_bytes = embedding.tobytes()
+        now = datetime.now().isoformat()
+
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO embeddings
+            (session_key, message_index, content_hash, embedding, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (session_key, message_index, content_hash, embedding_bytes, now),
+        )
+        conn.commit()
+
+    def get_embedding(
+        self, session_key: str, message_index: int
+    ) -> Optional[np.ndarray]:
+        """Get embedding for a specific message."""
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT embedding FROM embeddings WHERE session_key = ? AND message_index = ?",
+            (session_key, message_index),
+        ).fetchone()
+
+        if row is None:
+            return None
+        return np.frombuffer(row[0], dtype=np.float32)
+
+    def has_embedding(self, session_key: str, message_index: int) -> bool:
+        """Check if embedding exists for a message."""
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT 1 FROM embeddings WHERE session_key = ? AND message_index = ?",
+            (session_key, message_index),
+        ).fetchone()
+        return row is not None
+
+    def get_last_embedded_index(self, session_key: str) -> int:
+        """Get the highest message index that has been embedded."""
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT MAX(message_index) FROM embeddings WHERE session_key = ?",
+            (session_key,),
+        ).fetchone()
+        return row[0] if row[0] is not None else -1
+
+    def search(
+        self,
+        query_embedding: np.ndarray,
+        session_key: Optional[str] = None,
+        top_k: int = 10,
+        min_similarity: float = 0.0,
+    ) -> list[SearchResult]:
+        """Search for similar embeddings."""
+        conn = self._get_conn()
+
+        if session_key:
+            rows = conn.execute(
+                "SELECT session_key, message_index, content_hash, embedding FROM embeddings WHERE session_key = ?",
+                (session_key,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT session_key, message_index, content_hash, embedding FROM embeddings"
+            ).fetchall()
+
+        if not rows:
+            return []
+
+        # Vectorized similarity computation
+        embeddings = np.frombuffer(
+            b"".join(row[3] for row in rows), dtype=np.float32
+        ).reshape(len(rows), -1)
+
+        row_norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        row_norms[row_norms == 0] = 1.0
+        embeddings_norm = embeddings / row_norms
+
+        query_norm = np.linalg.norm(query_embedding)
+        query_normalized = (
+            query_embedding / query_norm if query_norm > 0 else query_embedding
+        )
+
+        similarities = np.dot(embeddings_norm, query_normalized)
+
+        results = []
+        for i, similarity in enumerate(similarities):
+            if similarity >= min_similarity:
+                results.append(
+                    SearchResult(
+                        session_key=rows[i][0],
+                        message_index=rows[i][1],
+                        content_hash=rows[i][2],
+                        similarity=float(similarity),
+                    )
+                )
+
+        results.sort(key=lambda x: x.similarity, reverse=True)
+        return results[:top_k]
+
+    def delete_session_embeddings(self, session_key: str) -> int:
+        """Delete all embeddings for a session."""
+        conn = self._get_conn()
+        cursor = conn.execute(
+            "DELETE FROM embeddings WHERE session_key = ?", (session_key,)
+        )
+        conn.commit()
+        return cursor.rowcount
+
+    def count_embeddings(self, session_key: Optional[str] = None) -> int:
+        """Count embeddings, optionally for a specific session."""
+        conn = self._get_conn()
+        if session_key:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM embeddings WHERE session_key = ?",
+                (session_key,),
+            ).fetchone()
+        else:
+            row = conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()
+        return row[0]
+
+
+# Default store instance
+_default_store: EmbeddingStore | None = None
+
+
+def get_embedding_store() -> EmbeddingStore:
+    """Get the default EmbeddingStore instance."""
+    global _default_store
+    if _default_store is None:
+        _default_store = EmbeddingStore()
+    return _default_store

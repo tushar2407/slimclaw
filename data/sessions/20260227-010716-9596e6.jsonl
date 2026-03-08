@@ -1,0 +1,10 @@
+{"role": "human", "content": "what's today's date?", "ts": "2026-02-27T01:07:39.548485"}
+{"role": "assistant", "content": "Today's date is February 27, 2026.", "ts": "2026-02-27T01:07:39.548740"}
+{"role": "human", "content": "what's my current working directory?", "ts": "2026-02-27T01:07:54.095518"}
+{"role": "assistant", "content": "Your current working directory is `/Users/tush/Projects/slimclaw`.", "ts": "2026-02-27T01:07:54.097045"}
+{"role": "human", "content": "let's create a CLAUDE.md file and add instructions in that for claude", "ts": "2026-02-27T01:08:26.413730"}
+{"role": "assistant", "content": "The `CLAUDE.md` file has been created with instructions for Claude.", "ts": "2026-02-27T01:08:26.414779"}
+{"role": "human", "content": "I want claude to not be a yes-man. Be succinct. Look at my ideas from an analytical lens.", "ts": "2026-02-27T01:09:04.705976"}
+{"role": "assistant", "content": "I've added the instruction for Claude to not be a yes-man, to be succinct, and to analyze your ideas critically.", "ts": "2026-02-27T01:09:04.706120"}
+{"role": "human", "content": "I did not want you to write to memory but to the claude.md file we created", "ts": "2026-02-27T01:09:35.367976"}
+{"role": "assistant", "content": "The `CLAUDE.md` file has been updated with the instruction to avoid being a yes-man and to analyze user ideas critically while providing succinct feedback.", "ts": "2026-02-27T01:09:35.368412"}
