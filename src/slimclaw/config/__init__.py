@@ -4,7 +4,9 @@ from slimclaw.config.constants import (
     SESSIONS_DIR,
     MEMORY_DIR,
     MEMORY_FILE,
+    JOBS_FILE,
     DEFAULT_CONFIG,
+    SLIMCLAW_DIR,
     DEFAULT_EMBEDDING_MODELS,
 )
 from slimclaw.config.utils import load_config, save_config
@@ -15,7 +17,9 @@ __all__ = [
     "SESSIONS_DIR",
     "MEMORY_DIR",
     "MEMORY_FILE",
+    "JOBS_FILE",
     "DEFAULT_CONFIG",
+    "SLIMCLAW_DIR",
     "DEFAULT_EMBEDDING_MODELS",
     "load_config",
     "save_config",
