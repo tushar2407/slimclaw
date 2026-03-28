@@ -13,6 +13,11 @@ from slimclaw.tools.edit import tool as edit_tool
 from slimclaw.tools.grep import tool as grep_tool
 from slimclaw.tools.find import tool as find_tool
 from slimclaw.tools.ls import tool as ls_tool
+from slimclaw.tools.cron import (
+    schedule_reminder_tool,
+    list_reminders_tool,
+    cancel_reminder_tool,
+)
 
 TOOLS = [
     read_tool,
@@ -26,6 +31,9 @@ TOOLS = [
     grep_tool,
     find_tool,
     ls_tool,
+    schedule_reminder_tool,
+    list_reminders_tool,
+    cancel_reminder_tool,
 ]
 
 __all__ = ["TOOLS"]

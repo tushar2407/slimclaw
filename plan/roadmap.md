@@ -17,14 +17,14 @@
 **Complexity: LOW | Dependencies: None**
 
 ### 2.1 File Tools
-- [ ] `edit` - String replacement in files (old_string → new_string)
-- [ ] `grep` - Regex search with context lines (-A/-B/-C)
-- [ ] `find` - Glob pattern file search
-- [ ] `ls` - Directory listing with details
+- [X] `edit` - String replacement in files (old_string → new_string)
+- [X] `grep` - Regex search with context lines (-A/-B/-C)
+- [X] `find` - Glob pattern file search
+- [X] `ls` - Directory listing with details
 
 ### 2.2 Improved Error Handling
-- [ ] Tool errors return structured messages
-- [ ] Agent retries with different approach on failure
+- [X] Tool errors return structured messages
+- [X] Agent retries with different approach on failure
 
 ---
 
@@ -47,14 +47,14 @@
 **Complexity: MEDIUM | Dependencies: Phase 3**
 
 ### 4.1 Cron System
-- [ ] Simple cron expression parsing
-- [ ] Job persistence (jobs.json)
-- [ ] Background scheduler thread
+- [X] Simple cron expression parsing
+- [X] Job persistence (jobs.json)
+- [X] Background scheduler thread
 - [ ] HEARTBEAT.md for recurring prompts
 
 ### 4.2 Wake Events
-- [ ] Time-based reminders
-- [ ] One-shot vs recurring jobs
+- [X] Time-based reminders
+- [X] One-shot vs recurring jobs
 
 ---
 

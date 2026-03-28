@@ -10,6 +10,7 @@ from rich.spinner import Spinner
 
 from slimclaw.agent import AgentState, InvokeResult, SlimclawAgent, StreamEvent
 from slimclaw.config import DB_PATH, load_config, save_config
+from slimclaw.cron import CronScheduler
 from slimclaw.llm import LLMConfigurationError, Provider, get_models
 from slimclaw.memory import MessageArchive
 from slimclaw.sessions import Session, SessionManager
@@ -45,6 +46,8 @@ class Runner:
         self._consolidator: Optional["MemoryConsolidator"] = None
         self._embeddings_enabled = False
         self._init_embeddings()
+        self._scheduler = CronScheduler()
+        self._scheduler.start()
 
     def run(self) -> None:
         """Main REPL loop."""
@@ -81,6 +84,7 @@ class Runner:
 
                 self.console.print()
         finally:
+            self._scheduler.stop()
             self.db.close()
 
     def _print_banner(self) -> None:

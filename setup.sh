@@ -30,6 +30,9 @@ brew services start ollama
 echo "==> Pulling qwen2.5:7b model (this may take a while)..."
 ollama pull qwen2.5:7b
 
+echo "==> Pulling nomic-embed-text model for semantic search..."
+ollama pull nomic-embed-text
+
 echo "==> Setting up ~/.slimclaw/..."
 mkdir -p ~/.slimclaw
 mkdir -p ~/.slimclaw/sessions

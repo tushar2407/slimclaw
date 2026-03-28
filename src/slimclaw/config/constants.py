@@ -10,7 +10,8 @@ DB_PATH = SLIMCLAW_DIR / "slimclaw.db"
 CONFIG_FILE = SLIMCLAW_DIR / "config.json"
 SESSIONS_DIR = SLIMCLAW_DIR / "sessions"  # JSONL message archives
 MEMORY_DIR = SLIMCLAW_DIR / "memory"  # Consolidated memory files
-MEMORY_FILE = SLIMCLAW_DIR / "MEMORY.md"  # User notes
+MEMORY_FILE = SLIMCLAW_DIR / "MEMORY.md"
+JOBS_FILE = SLIMCLAW_DIR / "jobs.json"  # User notes
 
 # ─── Default Configuration ─────────────────────────────────────────────────────
 
