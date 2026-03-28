@@ -1,3 +1,5 @@
-from slimclaw.constants import SLIMCLAW_DIR
+"""Tools constants - re-exports from config for backwards compatibility."""
 
-MEMORY_FILE = SLIMCLAW_DIR / "MEMORY.md"
+from slimclaw.config import MEMORY_FILE, SLIMCLAW_DIR
+
+__all__ = ["MEMORY_FILE", "SLIMCLAW_DIR"]

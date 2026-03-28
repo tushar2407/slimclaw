@@ -1,9 +1,6 @@
 """Runner - orchestrates REPL loop, UI, sessions, and agent interaction."""
 
-import json
-import uuid
-from datetime import datetime
-from pathlib import Path
+import os
 from typing import Generator, Optional
 
 from rich.console import Console
@@ -12,9 +9,23 @@ from rich.markdown import Markdown
 from rich.spinner import Spinner
 
 from slimclaw.agent import AgentState, InvokeResult, SlimclawAgent, StreamEvent
-from slimclaw.config import load_config, save_config
-from slimclaw.constants import SESSIONS_DIR
+from slimclaw.config import DB_PATH, load_config, save_config
 from slimclaw.llm import LLMConfigurationError, Provider, get_models
+from slimclaw.memory import MessageArchive
+from slimclaw.sessions import Session, SessionManager
+
+# Optional embeddings support
+try:
+    from slimclaw.memory import (
+        EmbeddingProvider,
+        EmbeddingStore,
+        MemoryConsolidator,
+        get_embedding,
+    )
+
+    EMBEDDINGS_AVAILABLE = True
+except ImportError:
+    EMBEDDINGS_AVAILABLE = False
 
 
 # ─── Runner Class ─────────────────────────────────────────────────────────────
@@ -26,44 +37,51 @@ class Runner:
     def __init__(self):
         self.agent = SlimclawAgent()
         self.console = Console()
-        self.session_id: Optional[str] = None
-        self.session_file: Optional[Path] = None
-        self.sessions_dir = SESSIONS_DIR
-        self.sessions_dir.mkdir(parents=True, exist_ok=True)
+        self.db = SessionManager(DB_PATH)
+        self._archive = MessageArchive()
+        self.session: Optional[Session] = None
+        self._cli_user = os.environ.get("USER", os.environ.get("USERNAME", "default"))
+        self._embedding_store: Optional["EmbeddingStore"] = None
+        self._consolidator: Optional["MemoryConsolidator"] = None
+        self._embeddings_enabled = False
+        self._init_embeddings()
 
     def run(self) -> None:
         """Main REPL loop."""
-        self._new_session()
-        self._print_banner()
+        try:
+            self._new_session()
+            self._print_banner()
 
-        while True:
-            try:
-                user_input = self.console.input(
-                    "[bold green]you>[/bold green] "
-                ).strip()
-            except (KeyboardInterrupt, EOFError):
-                break
+            while True:
+                try:
+                    user_input = self.console.input(
+                        "[bold green]you>[/bold green] "
+                    ).strip()
+                except (KeyboardInterrupt, EOFError):
+                    break
 
-            if not user_input:
-                continue
+                if not user_input:
+                    continue
 
-            # Handle commands
-            if self._handle_command(user_input):
-                continue
+                # Handle commands
+                if self._handle_command(user_input):
+                    continue
 
-            # Run agent with UI
-            result = self._run_with_ui(self.agent.stream(user_input))
+                # Run agent with UI
+                result = self._run_with_ui(self.agent.stream(user_input))
 
-            # Handle shell confirmation loop
-            while result.needs_confirmation:
-                result = self._handle_confirmation(result)
+                # Handle shell confirmation loop
+                while result.needs_confirmation:
+                    result = self._handle_confirmation(result)
 
-            # Save turn if we got a response
-            if result.response:
-                self._save_turn("human", user_input)
-                self._save_turn("assistant", result.response)
+                # Save turn if we got a response
+                if result.response:
+                    self._save_turn("human", user_input)
+                    self._save_turn("assistant", result.response)
 
-            self.console.print()
+                self.console.print()
+        finally:
+            self.db.close()
 
     def _print_banner(self) -> None:
         """Print welcome banner."""
@@ -181,28 +199,95 @@ class Runner:
             self.agent = SlimclawAgent()
             self._new_session()
 
+    def _init_embeddings(self) -> None:
+        """Initialize embeddings and consolidation if available and enabled."""
+        if not EMBEDDINGS_AVAILABLE:
+            return
+
+        config = load_config()
+        embeddings_config = config.get("embeddings", {})
+
+        if not embeddings_config.get("enabled", True):
+            return
+
+        try:
+            self._embedding_store = EmbeddingStore()
+            # Consolidator needs an LLM - create one from config
+            from slimclaw.llm import create_llm
+            from slimclaw.llm.types import Model, Provider as LLMProvider
+
+            llm_config = config.get("llm", {})
+            provider = LLMProvider(llm_config.get("provider", "ollama"))
+            model = Model(
+                id=llm_config.get("model", "qwen2.5:7b"),
+                name=llm_config.get("model", "qwen2.5:7b"),
+                provider=provider,
+                description="",
+                base_url=llm_config.get("base_url"),
+            )
+            llm = create_llm(model)
+
+            threshold = embeddings_config.get("consolidation_threshold", 10)
+            self._consolidator = MemoryConsolidator(
+                llm=llm,
+                consolidation_threshold=threshold,
+            )
+            self._embeddings_enabled = True
+        except Exception:
+            # Silently disable embeddings if initialization fails
+            self._embeddings_enabled = False
+
     def _new_session(self) -> None:
-        """Create a new session."""
-        self.session_id = (
-            datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+        """Create or resume CLI session."""
+        session_key = Session.build_key(
+            agent_id="default",
+            channel="cli",
+            scope="user",
+            identifier=self._cli_user,
         )
-        self.session_file = self.sessions_dir / f"{self.session_id}.jsonl"
-        self.agent.new_session(self.session_id)
+        self.session = self.db.get_or_create_session(session_key)
+        self.agent.new_session(self.session.session_key)
 
     def _save_turn(self, role: str, content: str) -> None:
-        """Save a conversation turn to the session file."""
-        if self.session_file:
-            with open(self.session_file, "a") as f:
-                f.write(
-                    json.dumps(
-                        {
-                            "role": role,
-                            "content": content,
-                            "ts": datetime.now().isoformat(),
-                        }
-                    )
-                    + "\n"
+        """Save a conversation turn to the JSONL archive."""
+        if not self.session:
+            return
+
+        session_key = self.session.session_key
+
+        # Archive message and get its index
+        msg_index = self._archive.archive_message(
+            session_key=session_key,
+            role=role,
+            content=content,
+        )
+
+        # Generate and store embedding if enabled
+        if self._embeddings_enabled and self._embedding_store:
+            try:
+                config = load_config()
+                embeddings_config = config.get("embeddings", {})
+                provider_name = embeddings_config.get("provider", "ollama")
+                provider = EmbeddingProvider(provider_name)
+                model = embeddings_config.get("model")
+
+                embedding = get_embedding(content, provider=provider, model=model)
+                self._embedding_store.add_embedding(
+                    session_key=session_key,
+                    message_index=msg_index,
+                    content=content,
+                    embedding=embedding,
                 )
+            except Exception:
+                pass  # Silently skip embedding on error
+
+        # Check for memory consolidation
+        if self._embeddings_enabled and self._consolidator:
+            try:
+                if self._consolidator.should_consolidate(session_key):
+                    self._consolidator.consolidate(session_key)
+            except Exception:
+                pass  # Silently skip consolidation on error
 
     def _run_with_ui(self, events: Generator[StreamEvent, None, None]) -> InvokeResult:
         """

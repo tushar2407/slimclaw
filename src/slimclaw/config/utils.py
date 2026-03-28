@@ -1,15 +1,7 @@
-"""Configuration loading and management."""
-
 import json
-from pathlib import Path
 from typing import Any
 
-from slimclaw.config.constants import DEFAULT_CONFIG, CONFIG_FILE, SLIMCLAW_DIR
-
-
-def _ensure_config_dir() -> None:
-    """Ensure ~/.slimclaw/ directory exists."""
-    SLIMCLAW_DIR.mkdir(parents=True, exist_ok=True)
+from slimclaw.config.constants import CONFIG_FILE, DEFAULT_CONFIG, SLIMCLAW_DIR
 
 
 def load_config() -> dict[str, Any]:
@@ -21,10 +13,5 @@ def load_config() -> dict[str, Any]:
 
 def save_config(config: dict[str, Any]) -> None:
     """Save configuration to ~/.slimclaw/config.json."""
-    _ensure_config_dir()
+    SLIMCLAW_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG_FILE.write_text(json.dumps(config, indent=2))
-
-
-def get_config_path() -> Path:
-    """Get the config file path."""
-    return CONFIG_FILE
