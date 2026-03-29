@@ -9,6 +9,7 @@ from slimclaw.config.constants import (
     DEFAULT_CONFIG,
     SLIMCLAW_DIR,
     DEFAULT_EMBEDDING_MODELS,
+    DEFAULT_AGENT,
 )
 from slimclaw.config.utils import load_config, save_config
 
@@ -23,6 +24,7 @@ __all__ = [
     "DEFAULT_CONFIG",
     "SLIMCLAW_DIR",
     "DEFAULT_EMBEDDING_MODELS",
+    "DEFAULT_AGENT",
     "load_config",
     "save_config",
 ]
