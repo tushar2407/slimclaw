@@ -15,6 +15,7 @@ from slimclaw.config import SLIMCLAW_DIR, load_config
 from slimclaw.llm import Model, create_llm
 from slimclaw.prompt import PromptContext, build_system_prompt
 from slimclaw.tools import TOOLS
+from slimclaw.tools.spawn_subagent import make_spawn_agent_tool
 
 
 class SlimclawAgent:
@@ -53,7 +54,6 @@ class SlimclawAgent:
 
     def _build_graph(self):
         """Build the LangGraph agent with checkpointing."""
-        from slimclaw.tools.subagent import make_spawn_agent_tool
 
         model = Model.from_config(self._config.get("llm", {}))
         self._llm = create_llm(model)
