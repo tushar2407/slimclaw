@@ -24,6 +24,11 @@ def build_tooling_section(tools: list) -> str:
         "schedule_reminder": "Schedule a one-time reminder. 'when' accepts HH:MM (24h), H:MM AM/PM, or ISO datetime. 'message' is the notification text.",
         "list_reminders": "List all active reminders and scheduled tasks with their IDs.",
         "cancel_reminder": "Cancel a reminder by its job ID (shown in list_reminders output).",
+        "spawn_agent": (
+            "Delegate a complex subtask to a specialised subagent. "
+            "Provide a self-contained task description and optionally an agent_type "
+            "defined in ~/.slimclaw/AGENTS.md. Returns the subagent's final response."
+        ),
     }
 
     for tool in tools:
@@ -45,6 +50,9 @@ def build_tooling_section(tools: list) -> str:
     )
     lines.append(
         "- When the user asks to set a reminder or schedule something → use schedule_reminder with the exact time."
+    )
+    lines.append(
+        "- When a task is complex, benefits from specialisation, or you want to isolate work → use spawn_agent with a self-contained task description."
     )
 
     return "\n".join(lines)

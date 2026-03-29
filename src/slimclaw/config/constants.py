@@ -11,7 +11,8 @@ CONFIG_FILE = SLIMCLAW_DIR / "config.json"
 SESSIONS_DIR = SLIMCLAW_DIR / "sessions"  # JSONL message archives
 MEMORY_DIR = SLIMCLAW_DIR / "memory"  # Consolidated memory files
 MEMORY_FILE = SLIMCLAW_DIR / "MEMORY.md"
-JOBS_FILE = SLIMCLAW_DIR / "jobs.json"  # User notes
+JOBS_FILE = SLIMCLAW_DIR / "jobs.json"  # Scheduled jobs
+AGENTS_FILE = SLIMCLAW_DIR / "AGENTS.md"  # Agent type definitions
 
 # ─── Default Configuration ─────────────────────────────────────────────────────
 
@@ -35,4 +36,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
 DEFAULT_EMBEDDING_MODELS: dict[str, str] = {
     "ollama": "nomic-embed-text",
     "openai": "text-embedding-ada-002",
+}
+
+DEFAULT_AGENT: dict[str, Any] = {
+    "name": "default",
+    "description": "General purpose assistant with access to all non-shell tools.",
+    "tools": ["all"],
+    "model": "inherit",
 }
