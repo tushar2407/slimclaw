@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import tool
 
 from slimclaw.tools.utils import resolve_path
 
@@ -18,8 +18,9 @@ def _format_mode(mode: int, is_dir: bool) -> str:
     return "".join(perms)
 
 
+@tool
 def ls(path: str = ".", long: bool = False) -> str:
-    """List directory contents. Use long=True for detailed output (mode, size, mtime)."""
+    """List directory contents. Use long=True for details (mode, size, mtime). Defaults to names only."""
     target = resolve_path(path)
 
     if not target.exists():
@@ -27,7 +28,6 @@ def ls(path: str = ".", long: bool = False) -> str:
 
     if target.is_file():
         items = [target]
-    # if directory
     else:
         try:
             items = sorted(
@@ -54,10 +54,3 @@ def ls(path: str = ".", long: bool = False) -> str:
             lines.append(name)
 
     return "\n".join(lines) if lines else "(empty)"
-
-
-tool = StructuredTool.from_function(
-    ls,
-    name="ls",
-    description="Directory listing. Use long=True for details (mode, size, mtime). Defaults to names only.",
-)

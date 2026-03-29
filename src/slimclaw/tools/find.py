@@ -1,19 +1,20 @@
 """Search for files matching a glob pattern."""
 
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import tool
 
 from slimclaw.tools.utils import resolve_path
 
 
+@tool
 def find(pattern: str, base_dir: str = ".") -> str:
-    """Search for files matching a glob pattern.
+    """Search for files matching a glob pattern under a base directory. Returns absolute paths.
 
     Args:
-        pattern: Glob pattern (e.g. \"*.py\", \"**/*.md\").
-        base_dir: Base directory to search from (default \".\").
+        pattern: Glob pattern (e.g. "*.py", "**/*.md").
+        base_dir: Base directory to search from (default ".").
 
     Returns:
-        List of matching paths, one per line, relative to the base directory.
+        List of matching paths, one per line.
     """
     if not pattern:
         return "Pattern must not be empty."
@@ -24,7 +25,6 @@ def find(pattern: str, base_dir: str = ".") -> str:
     if not base.is_dir():
         return f"Base path is not a directory: {base_dir}"
 
-    # Always return absolute paths so the agent can use results directly
     matches = sorted(p.resolve() for p in base.rglob(pattern))
     if not matches:
         return f"No files matched pattern {pattern!r} under {base_dir}"
@@ -35,10 +35,3 @@ def find(pattern: str, base_dir: str = ".") -> str:
         return "\n".join(shown + [f"... ({len(paths) - 500} more not shown)"])
 
     return "\n".join(paths)
-
-
-tool = StructuredTool.from_function(
-    find,
-    name="find",
-    description="Glob pattern file search (e.g. '*.py', '**/*.md') under a base directory. Returns absolute paths.",
-)

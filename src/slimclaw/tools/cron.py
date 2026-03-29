@@ -3,7 +3,7 @@
 import datetime
 import uuid
 
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import tool
 
 from slimclaw.cron import Job, add_job, load_jobs, remove_job
 
@@ -20,15 +20,13 @@ _TIME_FORMATS = [
 
 def _parse_when(when: str) -> datetime.datetime | None:
     """Parse a time/datetime string. Bare times are assumed to be today."""
-    # Try full ISO datetime first
     try:
         return datetime.datetime.fromisoformat(when)
     except ValueError:
         pass
 
-    # Try bare time formats — attach today's date
     today = datetime.date.today()
-    normalized = when.strip().upper()  # normalize AM/PM casing
+    normalized = when.strip().upper()
     for fmt in _TIME_FORMATS:
         try:
             t = datetime.datetime.strptime(normalized, fmt)
@@ -39,16 +37,12 @@ def _parse_when(when: str) -> datetime.datetime | None:
     return None
 
 
-# ─── Tool functions ────────────────────────────────────────────────────────────
+# ─── Tools ────────────────────────────────────────────────────────────────────
 
 
+@tool
 def schedule_reminder(when: str, message: str) -> str:
-    """Schedule a one-time reminder.
-
-    Args:
-        when: Time to fire. Accepts HH:MM (24h), H:MM AM/PM, or ISO datetime.
-        message: Notification text shown to the user.
-    """
+    """Schedule a one-time reminder. 'when' accepts HH:MM (24h), H:MM AM/PM, or ISO datetime. 'message' is the notification text."""
     parsed = _parse_when(when)
     if parsed is None:
         return (
@@ -76,8 +70,9 @@ def schedule_reminder(when: str, message: str) -> str:
     )
 
 
+@tool
 def list_reminders() -> str:
-    """List all scheduled reminders and recurring tasks."""
+    """List all scheduled reminders and recurring tasks with their IDs."""
     jobs = load_jobs()
     if not jobs:
         return "No reminders or scheduled tasks."
@@ -94,34 +89,10 @@ def list_reminders() -> str:
     return "\n".join(lines)
 
 
+@tool
 def cancel_reminder(job_id: str) -> str:
     """Cancel a scheduled reminder by its job ID."""
     found = remove_job(job_id)
     if found:
         return f"Reminder {job_id} cancelled."
     return f"No reminder found with id '{job_id}'."
-
-
-# ─── Tool exports ──────────────────────────────────────────────────────────────
-
-schedule_reminder_tool = StructuredTool.from_function(
-    schedule_reminder,
-    name="schedule_reminder",
-    description=(
-        "Schedule a one-time reminder. "
-        "'when' accepts HH:MM (24h), H:MM AM/PM, or ISO datetime. "
-        "'message' is the notification text."
-    ),
-)
-
-list_reminders_tool = StructuredTool.from_function(
-    list_reminders,
-    name="list_reminders",
-    description="List all scheduled reminders and recurring tasks with their IDs.",
-)
-
-cancel_reminder_tool = StructuredTool.from_function(
-    cancel_reminder,
-    name="cancel_reminder",
-    description="Cancel a scheduled reminder by its job ID.",
-)

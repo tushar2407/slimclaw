@@ -6,19 +6,12 @@ This tool just executes commands when called.
 
 import subprocess
 
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import tool
 
 
-def shell_run(command: str) -> str:
-    """
-    Run a shell command.
-
-    Args:
-        command: The shell command to execute.
-
-    Returns:
-        Command output or error message.
-    """
+@tool
+def shell(command: str) -> str:
+    """Run a shell command. Use for: finding files (find, ls -la), exploring directories, running scripts, system commands."""
     try:
         result = subprocess.run(
             command,
@@ -33,10 +26,3 @@ def shell_run(command: str) -> str:
         return "ERROR [timeout]: Command timed out after 30s"
     except Exception as e:
         return f"ERROR [shell_error]: {e}"
-
-
-tool = StructuredTool.from_function(
-    shell_run,
-    name="shell",
-    description="Run a shell command. Use for: finding files (find, ls -la), exploring directories, running scripts, system commands.",
-)

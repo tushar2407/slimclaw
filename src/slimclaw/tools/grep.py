@@ -4,11 +4,12 @@ import re
 from pathlib import Path
 from typing import List
 
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import tool
 
 from slimclaw.tools.utils import resolve_path
 
 
+@tool
 def grep(
     pattern: str,
     path: str = ".",
@@ -81,10 +82,3 @@ def grep(
         return f"No matches found for pattern: {pattern!r} in {path}"
 
     return "\n".join(lines_out)
-
-
-tool = StructuredTool.from_function(
-    grep,
-    name="grep",
-    description="Regex search in files with optional context lines (-A/-B). Path can be a file or directory.",
-)

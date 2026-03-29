@@ -3,13 +3,14 @@
 from pathlib import Path
 from typing import List
 
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import tool
 
 from slimclaw.tools.utils import resolve_path
 
 
+@tool
 def edit(path: str, old_string: str, new_string: str) -> str:
-    """Replace all occurrences of old_string with new_string in the given file or files.
+    """Replace all occurrences of old_string with new_string in a file or glob pattern.
 
     Args:
         path: File path or glob pattern. Relative paths resolve from current working directory.
@@ -24,7 +25,6 @@ def edit(path: str, old_string: str, new_string: str) -> str:
 
     paths: List[Path] = []
 
-    # If the path looks like a glob pattern, expand it from the current working directory.
     if any(ch in path for ch in "*?[]"):
         paths = sorted(Path.cwd().rglob(path))
     else:
@@ -67,10 +67,3 @@ def edit(path: str, old_string: str, new_string: str) -> str:
 
     header = f"Total replacements: {total_replacements} in {len(results)} file(s)"
     return "\n".join([header] + results)
-
-
-tool = StructuredTool.from_function(
-    edit,
-    name="edit",
-    description="String replacement in files (old_string → new_string). Path can be a file path or glob pattern.",
-)
