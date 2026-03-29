@@ -77,13 +77,14 @@
 **Complexity: HIGH | Dependencies: Phase 3, 4**
 
 ### 6.1 Agent Spawning
-- [ ] `spawn_agent` tool to create child agents
-- [ ] Depth limits (prevent infinite nesting)
-- [ ] Parent-child message passing
+- [X] `spawn_agent` tool to create child agents
+- [X] Depth limits (prevent infinite nesting, max depth 2)
+- [X] Parent-child message passing (queue-based, result returned as string)
 
 ### 6.2 Specialized Agents
-- [ ] AGENTS.md for defining agent types
-- [ ] Per-agent SOUL.md and tools
+- [X] AGENTS.md for defining agent types (default, researcher, coder, reader)
+- [X] Per-agent tools (tool lists in AGENTS.md, shell opt-in)
+- [ ] Per-agent SOUL.md (future)
 
 ---
 

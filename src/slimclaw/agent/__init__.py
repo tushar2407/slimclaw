@@ -1,4 +1,4 @@
-"""Agent module - core agent logic."""
+"""Agent module - core SlimClaw agent."""
 
 from slimclaw.agent.core import SlimclawAgent
 from slimclaw.agent.state import AgentState

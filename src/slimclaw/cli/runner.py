@@ -1,6 +1,7 @@
 """Runner - orchestrates REPL loop, UI, sessions, and agent interaction."""
 
 import os
+import queue as queue_module
 from typing import Generator, Optional
 
 from rich.console import Console
@@ -36,7 +37,8 @@ class Runner:
     """Orchestrates REPL loop, UI, sessions, and agent interaction."""
 
     def __init__(self):
-        self.agent = SlimclawAgent()
+        self._child_event_queue: queue_module.Queue = queue_module.Queue()
+        self.agent = SlimclawAgent(child_event_queue=self._child_event_queue)
         self.console = Console()
         self.db = SessionManager(DB_PATH)
         self._archive = MessageArchive()
@@ -308,17 +310,24 @@ class Runner:
             refresh_per_second=10,
         ) as live:
             for event in events:
+                # Drain any child events that arrived while the main agent was busy
+                self._drain_child_events()
+
                 if event.type == "tool_call":
-                    # Show tool being called
                     tool = event.data
                     args_str = self._fmt_args(tool.tool_args)
-                    self.console.print(
-                        f"⚙  [cyan]{tool.tool_name}[/cyan]([dim]{args_str}[/dim])"
-                    )
-                    live.update(Spinner("dots", text=" running tool..."))
+                    if tool.tool_name == "spawn_agent":
+                        self.console.print(
+                            f"⚙  [cyan]spawn_agent[/cyan]([dim]{args_str}[/dim])"
+                        )
+                        live.update(Spinner("dots", text=" agent running..."))
+                    else:
+                        self.console.print(
+                            f"⚙  [cyan]{tool.tool_name}[/cyan]([dim]{args_str}[/dim])"
+                        )
+                        live.update(Spinner("dots", text=" running tool..."))
 
                 elif event.type == "tool_result":
-                    # Show tool result
                     tool_name = event.data["tool"]
                     content = event.data["result"]
                     preview = content[:200] + "..." if len(content) > 200 else content
@@ -328,23 +337,21 @@ class Runner:
                     live.update(Spinner("dots", text=" thinking..."))
 
                 elif event.type == "text":
-                    # Agent text response
                     final_text = event.data
 
                 elif event.type == "interrupt":
-                    # Needs confirmation - return immediately
                     live.update("")
                     return event.data
 
                 elif event.type == "complete":
-                    # Done - show final response
                     result = event.data
                     if result.response:
                         self.console.print(Markdown(result.response))
 
+            # Final drain after generator is exhausted
+            self._drain_child_events()
             live.update("")
 
-        # If we didn't get a complete event, create a default result
         if result is None:
             result = InvokeResult(
                 response=final_text or None,
@@ -353,6 +360,28 @@ class Runner:
             )
 
         return result
+
+    def _drain_child_events(self) -> None:
+        """Non-blocking drain of child event queue — renders child activity with indent."""
+        while True:
+            try:
+                child_event: StreamEvent = self._child_event_queue.get_nowait()
+            except queue_module.Empty:
+                break
+
+            indent = "  \u21b3 "  # ↳
+            if child_event.type == "tool_call":
+                tool = child_event.data
+                args_str = self._fmt_args(tool.tool_args)
+                self.console.print(
+                    f"{indent}[dim cyan]{tool.tool_name}[/dim cyan]"
+                    f"([dim]{args_str}[/dim])"
+                )
+            elif child_event.type == "tool_result":
+                tool_name = child_event.data["tool"]
+                self.console.print(f"{indent}[dim green]{tool_name}[/dim green] ✓")
+            elif child_event.type == "complete":
+                self.console.print(f"{indent}[dim]subagent complete[/dim]")
 
     def _handle_confirmation(self, result: InvokeResult) -> InvokeResult:
         """Prompt user for shell command approval."""

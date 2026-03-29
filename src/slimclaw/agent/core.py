@@ -1,5 +1,6 @@
 """SlimClaw Agent - class-based agent with checkpointing and streaming."""
 
+import queue as queue_module
 from typing import Generator, Optional
 
 from langchain_core.messages import HumanMessage, ToolMessage
@@ -7,6 +8,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
 from slimclaw.agent.state import AgentState
+from slimclaw.agent.subagent_types import SubAgentContext
 from slimclaw.agent.types import InvokeResult, PendingToolCall, StreamEvent
 from slimclaw.agent.utils import build_env_context
 from slimclaw.config import SLIMCLAW_DIR, load_config
@@ -33,15 +35,26 @@ class SlimclawAgent:
                 print(event.data.response)
     """
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(
+        self,
+        config: Optional[dict] = None,
+        spawn_ctx: Optional[SubAgentContext] = None,
+        tools_override: Optional[list] = None,
+        child_event_queue: Optional["queue_module.Queue"] = None,
+    ):
         self._config = config if config is not None else load_config()
         self._checkpointer = MemorySaver()
         self._session_id: Optional[str] = None
         self._graph = None  # Lazy init
         self._llm = None
+        self._spawn_ctx = spawn_ctx
+        self._tools_override = tools_override
+        self._child_event_queue = child_event_queue
 
     def _build_graph(self):
         """Build the LangGraph agent with checkpointing."""
+        from slimclaw.tools.subagent import make_spawn_agent_tool
+
         model = Model.from_config(self._config.get("llm", {}))
         self._llm = create_llm(model)
 
@@ -58,9 +71,28 @@ class SlimclawAgent:
             else ""
         )
 
+        # Start from override (child agent) or global TOOLS (top-level agent)
+        tools = list(
+            self._tools_override if self._tools_override is not None else TOOLS
+        )
+
+        # Inject spawn_agent if depth allows
+        if self._spawn_ctx is None:
+            # Top-level agent: create root SubAgentContext
+            q = self._child_event_queue or queue_module.Queue()
+            self._spawn_ctx = SubAgentContext(
+                parent_session_key=self._session_id or "unknown",
+                depth=0,
+                event_queue=q,
+                max_depth=2,
+            )
+
+        if self._spawn_ctx.depth < self._spawn_ctx.max_depth:
+            tools.append(make_spawn_agent_tool(self._spawn_ctx))
+
         ctx = PromptContext(
             env=env,
-            tools=TOOLS,
+            tools=tools,
             soul=soul,
             memory=memory,
             cwd=env.get("cwd", ""),
@@ -68,7 +100,7 @@ class SlimclawAgent:
 
         self._graph = create_react_agent(
             self._llm,
-            TOOLS,
+            tools,
             prompt=build_system_prompt(ctx),
             checkpointer=self._checkpointer,
             interrupt_before=["tools"],  # Pause before any tool execution
@@ -77,6 +109,14 @@ class SlimclawAgent:
     def new_session(self, session_id: str) -> None:
         """Start a new conversation session."""
         self._session_id = session_id
+        # Keep spawn context in sync with the current session key
+        if self._spawn_ctx is not None:
+            self._spawn_ctx = SubAgentContext(
+                parent_session_key=session_id,
+                depth=self._spawn_ctx.depth,
+                event_queue=self._spawn_ctx.event_queue,
+                max_depth=self._spawn_ctx.max_depth,
+            )
         # Rebuild graph to refresh env context (cwd, datetime, etc.)
         self._build_graph()
 
