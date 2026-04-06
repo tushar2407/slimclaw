@@ -4,31 +4,11 @@ A lightweight, local-first CLI personal assistant powered by Ollama.
 
 ## What is slimclaw?
 
-slimclaw is a terminal-based AI assistant that runs entirely on your machine. No cloud APIs, no subscriptions — just you and a local LLM having a conversation.
-
-**Core capabilities:**
-- **Read/write files** in your working directory
-- **Run shell commands** with your approval
-- **Search the web** via DuckDuckGo
-- **Persistent memory** across sessions
-
-## Vision
-
-slimclaw is Phase 1 of the [OpenClaw](https://github.com/tush/openclaw) ecosystem — a modular, extensible AI assistant platform.
-
-**Phase 1 (slimclaw):** Local CLI assistant with core tools
-**Phase 2 (OpenClaw):** Multi-channel (WhatsApp, Discord, Telegram), web UI, scheduled tasks, plugins
-
-The goal is an assistant that's genuinely useful, runs locally, respects your privacy, and can grow with your needs.
+slimclaw is a terminal-based AI assistant that runs entirely on your machine. No cloud APIs required — just you and a local LLM.
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.11+
-- [Homebrew](https://brew.sh) (macOS)
-
-### Setup
+**Prerequisites:** Python 3.11+, [Ollama](https://ollama.ai)
 
 ```bash
 git clone https://github.com/tushar2407/slimclaw.git
@@ -37,119 +17,128 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-This will:
-1. Create a Python virtual environment
-2. Install dependencies
-3. Install Ollama (if needed)
-4. Pull the default model (`qwen2.5:7b`)
-5. Set up `~/.slimclaw/` for agent configuration
-
-### Run
+`setup.sh` creates a virtual environment, installs dependencies, installs Ollama if needed, pulls the default model (`qwen2.5:7b`), and sets up `~/.slimclaw/`.
 
 ```bash
-source venv/bin/activate
+source .venv/bin/activate
 python main.py
 ```
 
-
-### Tools
-
-The agent has access to these tools:
+## Tools
 
 | Tool | Description |
 |------|-------------|
-| `read` | Read files (relative to working directory) |
-| `write` | Create/overwrite files |
-| `shell` | Run shell commands (with confirmation) |
+| `read` | Read a file |
+| `write` | Create or overwrite a file |
+| `edit` | String replacement in files (supports glob patterns) |
+| `shell` | Run shell commands (requires confirmation) |
+| `grep` | Regex search with context lines |
+| `find` | Glob pattern file search |
+| `ls` | Directory listing |
 | `web_search` | Search the web via DuckDuckGo |
-| `memory` | Save notes to persistent memory |
+| `memory_write` | Save a note to persistent memory |
+| `memory_search` | Search memory and session history |
+| `memory_get` | Read specific sections of memory files |
+| `schedule_reminder` | Schedule a one-time desktop notification |
+| `list_reminders` | List scheduled reminders |
+| `cancel_reminder` | Cancel a reminder by ID |
+| `spawn_agent` | Delegate a task to a specialised subagent |
+
+## Subagents
+
+The agent can spawn child agents to handle specialised subtasks. Agent types are defined in `~/.slimclaw/AGENTS.md`:
+
+```markdown
+## researcher
+description: Web search and summarisation only.
+tools: web_search, memory_write, memory_search
+model: inherit
+
+## coder
+description: Reads, writes, and runs code.
+tools: read, write, edit, shell, grep, find, ls
+model: inherit
+```
+
+Child agents run in a background thread and return their result to the parent. Nesting is limited to depth 2.
 
 ## Configuration
 
-### Model
-
-Edit `config.json` to change the model:
+Model and provider are set interactively with `/model` at the prompt, or by editing `~/.slimclaw/config.json`:
 
 ```json
 {
-  "model": "qwen2.5:7b",
-  "ollama_base_url": "http://localhost:11434",
-  "shell_auto_run": null
+  "llm": {
+    "provider": "ollama",
+    "model": "qwen2.5:7b",
+    "base_url": "http://localhost:11434"
+  },
+  "shell": {
+    "auto_run": null
+  }
 }
 ```
 
-**Recommended models:**
-- `qwen2.5:7b` — Good balance of speed and capability
-- `llama3.2:3b` — Faster, lighter
-- `qwen2.5:14b` — More capable, slower
+`shell.auto_run`: `null` = ask each time, `true` = always allow, `false` = always deny.
 
-### Personality
+Supported providers: `ollama`, `openai`, `anthropic`.
 
-Edit `~/.slimclaw/SOUL.md` to customize the agent's personality and behavior.
+## Customisation
 
-### Memory
+| File | Purpose |
+|------|---------|
+| `~/.slimclaw/SOUL.md` | Agent personality and behaviour |
+| `~/.slimclaw/MEMORY.md` | Persistent memory across sessions |
+| `~/.slimclaw/AGENTS.md` | Subagent type definitions |
 
-The agent stores persistent notes in `~/.slimclaw/MEMORY.md`. This survives across sessions and helps the agent remember context about you and your projects.
+## Slash Commands
+
+| Command | Action |
+|---------|--------|
+| `/model` | Switch provider and model |
+| `/new` | Reset conversation |
+| `/exit` | Quit |
 
 ## Project Structure
 
 ```
-slimclaw/
-├── main.py          # CLI entrypoint
-├── agent.py         # LLM orchestration + streaming
-├── tools.py         # Tool definitions
-├── config.json      # Model + settings
-├── setup.sh         # Automated setup
-├── requirements.txt # Dependencies
-└── workspace/       # Template files (copied to ~/.slimclaw/ on setup)
+src/slimclaw/
+├── agent/       # SlimclawAgent (LangGraph), subagent runner and types
+├── cli/         # REPL loop, Rich UI, session management
+├── config/      # Config loading, constants, paths
+├── cron/        # Background scheduler, job persistence, notifications
+├── llm/         # Provider factory (Ollama, OpenAI, Anthropic)
+├── memory/      # JSONL archive, embeddings, semantic search
+├── prompt/      # Modular system prompt builder
+├── sessions/    # SQLite session management
+└── tools/       # All tool definitions
 
-~/.slimclaw/         # Agent configuration (created by setup.sh)
-├── SOUL.md          # Agent personality
-└── MEMORY.md        # Persistent memory
+~/.slimclaw/
+├── config.json  # Model and settings
+├── SOUL.md      # Agent personality
+├── MEMORY.md    # Persistent memory
+├── AGENTS.md    # Subagent definitions
+└── jobs.json    # Scheduled reminders
 ```
 
-## Contributing
-
-Contributions welcome! Here's how to get started:
-
-### Development Setup
+## Development
 
 ```bash
-git clone https://github.com/tush/slimclaw.git
+git clone https://github.com/tushar2407/slimclaw.git
 cd slimclaw
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+./setup.sh
+
+# Lint
+ruff check .
+ruff format .
 ```
 
-### Guidelines
+### Adding a Tool
 
-1. **Keep it simple** — slimclaw is intentionally minimal
-2. **Local-first** — avoid cloud dependencies
-3. **Test your changes** — run the assistant and verify tools work
-4. **Follow existing patterns** — look at how current tools are implemented
-
-### Adding a New Tool
-
-1. Add your function to `tools.py`
-2. Add it to the `TOOLS` list with a `StructuredTool.from_function()` wrapper
-3. Update the `## Tools` section in `agent.py:build_system_prompt()` if needed
-
-### Pull Requests
-
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Make your changes
-4. Test thoroughly
-5. Submit a PR with a clear description
+1. Create a function in `src/slimclaw/tools/` and decorate with `@tool` from `langchain_core.tools`
+2. Add it to the `TOOLS` list in `src/slimclaw/tools/__init__.py`
+3. Add a description entry in `src/slimclaw/prompt/sections/tooling.py`
 
 ## License
 
 MIT
-
-## Acknowledgments
-
-Built with:
-- [Ollama](https://ollama.ai) — Local LLM inference
-- [LangChain](https://langchain.com) — Agent orchestration
-- [Rich](https://rich.readthedocs.io) — Beautiful terminal output
